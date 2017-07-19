@@ -73,9 +73,11 @@ public:
 
 	void getImage(const std::string& filename, ct::Matf& res, bool flip = false);
 
+	void init();
+
 private:
 	QString m_vocdir;
-	QString m_modelName;
+	QString m_model;
 	std::vector< Annotation > m_annotations;
 	QString m_key;
 	QString m_value;
@@ -85,6 +87,13 @@ private:
 	cv::Size* m_refSize;
 	cv::Mat m_sample;
 	int m_index;
+
+	//////////
+
+	std::vector< gpumat::conv2::convnn_gpu > m_conv;
+	std::vector< gpumat::mlp > m_mlp;
+
+	//////////
 
 	QMap< std::string, int > m_classes;
 

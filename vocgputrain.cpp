@@ -345,6 +345,11 @@ void VOCGpuTrain::getImage(const std::string &filename, ct::Matf &res, bool flip
 	}
 }
 
+void VOCGpuTrain::init()
+{
+
+}
+
 size_t VOCGpuTrain::size() const
 {
 	return m_annotations.size();
@@ -362,7 +367,7 @@ void VOCGpuTrain::loadModel(const QString &model)
 		return;
 	}
 
-	m_modelName = n;
+	m_model = n;
 
 //	read_vector(fs, m_cnvlayers);
 //	read_vector(fs, m_layers);
@@ -373,13 +378,30 @@ void VOCGpuTrain::loadModel(const QString &model)
 
 	init();
 
+	int cnvs, mlps;
+
+	/// size of convolution array
+	fs.read((char*)&cnvs, sizeof(cnvs));
+	/// size of mlp array
+	fs.read((char*)&mlps, sizeof(mlps));
+
+	printf("Load model: conv size %d, mlp size %d\n", cnvs, mlps);
+
+	m_conv.resize(cnvs);
+	m_mlp.resize(mlps);
+
+	printf("conv\n");
 	for(size_t i = 0; i < m_conv.size(); ++i){
 		gpumat::conv2::convnn_gpu &cnv = m_conv[i];
-		cnv.read(fs);
+		cnv.read2(fs);
+		printf("layer %d: rows %d, cols %d\n", i, cnv.W[0].rows, cnv.W[0].cols);
 	}
 
+	printf("mlp\n");
 	for(size_t i = 0; i < m_mlp.size(); ++i){
-		m_mlp[i].read(fs);
+		gpumat::mlp &mlp = m_mlp[i];
+		mlp.read2(fs);
+		printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
 	}
 
 	printf("model loaded.\n");
