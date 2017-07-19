@@ -5,6 +5,7 @@
 #include <QMap>
 
 #include <fstream>
+
 #include "gpumat.h"
 
 const QString path_annotations("Annotations");
@@ -361,7 +362,7 @@ void VOCGpuTrain::loadModel(const QString &model)
 		return;
 	}
 
-	m_model = n;
+	m_modelName = n;
 
 //	read_vector(fs, m_cnvlayers);
 //	read_vector(fs, m_layers);
