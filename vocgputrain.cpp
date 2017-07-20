@@ -498,7 +498,8 @@ void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& 
 		gpumat::sub(t[i], y[i]);
 	}
 	for(int i = first_confidences; i < last_confidences + 1; ++i){
-		gpumat::sub(t[i], y[i]);
+//		gpumat::deriv_sigmoid(t[i], y[i]);
+		gpumat::sub(y[i], t[i], t[i]);
 	}
 }
 
