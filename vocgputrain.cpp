@@ -14,14 +14,17 @@ const QString path_images("JPEGImages");
 
 const int W = 448;
 const int K = 7;
-const int Classes = 21;
+const int Classes = 30;
 const int Boxes = 2;
+
+const int cnv_size = 4;
+const int mlp_size = 3;
 
 const int first_classes = 0;
 const int last_classes = first_classes + K * K - 1;
-const int first_boxes = last_classes;
+const int first_boxes = last_classes + 1;
 const int last_boxes = first_boxes + K * K - 1;
-const int first_confidences = last_boxes;
+const int first_confidences = last_boxes + 1;
 const int last_confidences = first_confidences + K * K - 1;
 
 VOCGpuTrain::VOCGpuTrain()
@@ -31,6 +34,8 @@ VOCGpuTrain::VOCGpuTrain()
 	m_refSize = 0;
 	m_index = -1;
 	m_check_count = 300;
+
+	m_modelSave = "model_voc.bin";
 
 	m_passes = 100000;
 	m_batch = 5;
@@ -385,7 +390,24 @@ void VOCGpuTrain::getImage(const std::string &filename, ct::Matf &res, bool flip
 
 void VOCGpuTrain::init()
 {
+	m_conv.resize(cnv_size);
 
+	m_conv[0].init(ct::Size(W, W), 3, 4, 64, ct::Size(7, 7), true, false);
+	m_conv[1].init(m_conv[0].szOut(), 64, 1, 256, ct::Size(5, 5), true);
+	m_conv[2].init(m_conv[1].szOut(), 256, 1, 512, ct::Size(3, 3), true);
+	m_conv[3].init(m_conv[2].szOut(), 512, 1, 1024, ct::Size(3, 3), true);
+//	m_conv[4].init(m_conv[3].szOut(), 1024, 1, 1024, ct::Size(3, 3), false);
+
+	int outFeatures = m_conv.back().outputFeatures();
+
+	m_mlp.resize(mlp_size);
+
+	m_mlp[0].init(outFeatures, 4096, gpumat::GPU_FLOAT);
+	m_mlp[1].init(4096, 2048, gpumat::GPU_FLOAT);
+	m_mlp[2].init(2048, m_out_features, gpumat::GPU_FLOAT);
+
+	m_optim.init(m_mlp);
+	m_optim.setAlpha(m_lr);
 }
 
 void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::GpuMat> *pY)
@@ -503,11 +525,11 @@ void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& 
 		gpumat::subIndOne(t[i], y[i], t[i]);
 	}
 	for(int i = first_boxes; i < last_boxes + 1; ++i){
-		gpumat::sub(y[i], t[i], t[i]);
+		gpumat::sub(t[i], y[i], t[i]);
 	}
 	for(int i = first_confidences; i < last_confidences + 1; ++i){
 //		gpumat::deriv_sigmoid(t[i], y[i]);
-		gpumat::sub(y[i], t[i], t[i]);
+		gpumat::sub(t[i], y[i], t[i]);
 	}
 }
 
@@ -540,6 +562,7 @@ void VOCGpuTrain::doPass()
 	std::vector< gpumat::GpuMat > X;
 	std::vector< gpumat::GpuMat > y, t;
 	std::vector< int > cols;
+	cols.resize(m_batch);
 	for(int i = 0; i < m_passes; ++i){
 		cv::randu(cols, 0, m_annotations.size() - 1);
 		getGroundTruthMat(cols, Boxes, Classes, mX, mY);
@@ -552,7 +575,8 @@ void VOCGpuTrain::doPass()
 
 		backward(t);
 
-		printf("pass=%d     \r");
+		printf("pass=%d     \r", i);
+		std::cout << std::flush;
 
 		if((i % m_num_save_pass) == 0){
 			int k = 0;
@@ -573,6 +597,7 @@ void VOCGpuTrain::doPass()
 			}
 			loss /= m_check_count;
 			printf("pass=%d, loss=%f    \n", i, loss);
+			saveModel(m_modelSave);
 		}
 	}
 }
@@ -582,7 +607,7 @@ size_t VOCGpuTrain::size() const
 	return m_annotations.size();
 }
 
-void VOCGpuTrain::loadModel(const QString &model)
+bool VOCGpuTrain::loadModel(const QString &model, bool load_mlp)
 {
 	QString n = QDir::fromNativeSeparators(model);
 
@@ -591,7 +616,7 @@ void VOCGpuTrain::loadModel(const QString &model)
 
 	if(!fs.is_open()){
 		printf("File %s not open\n", n.toLatin1().data());
-		return;
+		return false;
 	}
 
 	m_model = n;
@@ -614,24 +639,69 @@ void VOCGpuTrain::loadModel(const QString &model)
 
 	printf("Load model: conv size %d, mlp size %d\n", cnvs, mlps);
 
-	m_conv.resize(cnvs);
-	m_mlp.resize(mlps);
+	if(m_conv.size() < cnvs)
+		m_conv.resize(cnvs);
 
 	printf("conv\n");
-	for(size_t i = 0; i < m_conv.size(); ++i){
+	for(size_t i = 0; i < cnvs; ++i){
 		gpumat::conv2::convnn_gpu &cnv = m_conv[i];
 		cnv.read2(fs);
 		printf("layer %d: rows %d, cols %d\n", i, cnv.W[0].rows, cnv.W[0].cols);
 	}
 
-	printf("mlp\n");
-	for(size_t i = 0; i < m_mlp.size(); ++i){
-		gpumat::mlp &mlp = m_mlp[i];
-		mlp.read2(fs);
-		printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+	if(load_mlp){
+		m_mlp.resize(mlps);
+		printf("mlp\n");
+		for(size_t i = 0; i < m_mlp.size(); ++i){
+			gpumat::mlp &mlp = m_mlp[i];
+			mlp.read2(fs);
+			printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+		}
 	}
 
 	printf("model loaded.\n");
+	return true;
+}
+
+void VOCGpuTrain::saveModel(const QString &name)
+{
+	QString n = QDir::fromNativeSeparators(name);
+
+	std::fstream fs;
+	fs.open(n.toStdString(), std::ios_base::out | std::ios_base::binary);
+
+	if(!fs.is_open()){
+		printf("File %s not open\n", n.toLatin1().data());
+		return;
+	}
+
+//	write_vector(fs, m_cnvlayers);
+//	write_vector(fs, m_layers);
+
+//	fs.write((char*)&m_szA0, sizeof(m_szA0));
+
+	int cnvs = m_conv.size(), mlps = m_mlp.size();
+
+	/// size of convolution array
+	fs.write((char*)&cnvs, sizeof(cnvs));
+	/// size of mlp array
+	fs.write((char*)&mlps, sizeof(mlps));
+
+	for(size_t i = 0; i < m_conv.size(); ++i){
+		gpumat::conv2::convnn_gpu &cnv = m_conv[i];
+		cnv.write2(fs);
+	}
+
+	for(size_t i = 0; i < m_mlp.size(); ++i){
+		m_mlp[i].write2(fs);
+	}
+
+	printf("model saved.\n");
+}
+
+void VOCGpuTrain::setModelSaveName(const QString &name)
+{
+	m_modelSave = name;
 }
 
 bool VOCGpuTrain::load_annotation(const QString &fileName, Annotation& annotation)

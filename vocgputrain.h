@@ -64,7 +64,9 @@ public:
 
 	size_t size() const;
 
-	void loadModel(const QString& model);
+	bool loadModel(const QString& model, bool load_mlp = false);
+	void saveModel(const QString& name);
+	void setModelSaveName(const QString& name);
 
 	Annotation &getGroundTruthMat(int index, int boxes, int classes, std::vector<ct::Matf> &images,
 						   std::vector< ct::Matf >& res, int row = 0, int rows = 1);
@@ -110,6 +112,8 @@ private:
 	int m_lr;
 	int m_num_save_pass;
 	int m_check_count;
+
+	QString m_modelSave;
 
 	std::vector< gpumat::conv2::convnn_gpu > m_conv;
 	std::vector< gpumat::mlp > m_mlp;

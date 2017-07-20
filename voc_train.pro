@@ -2,6 +2,8 @@ TEMPLATE = app
 TARGET = voc_train
 
 CONFIG += console
+CONFIG += c++11
+CONFIG -= app_bundle
 
 QT += core xml
 

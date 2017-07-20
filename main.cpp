@@ -20,8 +20,11 @@ std::map<std::string, std::string> parseArgs(int argc, char *argv[])
 		if(str == "-voc" && i < argc){
 			res["voc"] = argv[i + 1];
 		}
-		if(str == "-load" && i < argc){
-			res["load"] = argv[i + 1];
+		if(str == "-load_voc" && i < argc){
+			res["load_voc"] = argv[i + 1];
+		}
+		if(str == "-load_pretrain" && i < argc){
+			res["load_pretrain"] = argv[i + 1];
 		}
 		if(str == "-save" && i < argc){
 			res["save"] = argv[i + 1];
@@ -139,7 +142,7 @@ int main(int argc, char *argv[])
 
 	QString voc_dir;
 
-	int passes = 100000, batch = 4;
+	int passes = 100000, batch = 10;
 	float lr = 0.0001;
 	bool train = false;
 
@@ -161,6 +164,22 @@ int main(int argc, char *argv[])
 	}
 	if(contain(res, "train")){
 		train = true;
+	}
+	bool model_voc_loaded = false;
+	if(contain(res, "load_voc")){
+		std::string fn = res["load_voc"];
+		model_voc_loaded = voc.loadModel(fn.c_str(), true);
+		if(model_voc_loaded){
+			printf("<<<< model for VOC loaded >>>>\n");
+		}
+	}
+	if(contain(res, "load_pretrain") && !model_voc_loaded){
+		std::string fn = res["load_pretrain"];
+		voc.loadModel(fn.c_str(), false);
+	}
+	if(contain(res, "save")){
+		std::string fn = res["save"];
+		voc.setModelSaveName(fn.c_str());
 	}
 
 	if(!voc.setVocFolder(voc_dir)){
