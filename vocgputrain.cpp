@@ -481,6 +481,11 @@ void VOCGpuTrain::setNumSavePass(int num)
 	m_num_save_pass = num;
 }
 
+void VOCGpuTrain::setSeed(int seed)
+{
+	cv::setRNGSeed(seed);
+}
+
 void cnv2gpu(std::vector< ct::Matf >& In, std::vector< gpumat::GpuMat >& Out)
 {
 	Out.resize(In.size());
@@ -495,7 +500,7 @@ void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& 
 		gpumat::subIndOne(t[i], y[i], t[i]);
 	}
 	for(int i = first_boxes; i < last_boxes + 1; ++i){
-		gpumat::sub(t[i], y[i]);
+		gpumat::sub(y[i], t[i], t[i]);
 	}
 	for(int i = first_confidences; i < last_confidences + 1; ++i){
 //		gpumat::deriv_sigmoid(t[i], y[i]);

@@ -47,8 +47,8 @@ std::map<std::string, std::string> parseArgs(int argc, char *argv[])
 		if(str == "-seed" && i < argc){
 			res["seed"] = argv[i + 1];
 		}
-		if(str == "-backconv" && i < argc){
-			res["backconv"] = argv[i + 1];
+		if(str == "-train" && i < argc){
+			res["train"] = "1";
 		}
 	}
 	return res;
@@ -139,63 +139,90 @@ int main(int argc, char *argv[])
 
 	QString voc_dir;
 
+	int passes = 100000, batch = 4;
+	float lr = 0.0001;
+	bool train = false;
+
 	if(contain(res, "voc")){
 		voc_dir = QString::fromStdString(res["voc"]);
+	}	
+	if(contain(res, "pass")){
+		passes = std::stoi(res["pass"]);
+	}
+	if(contain(res, "batch")){
+		batch = std::stoi(res["batch"]);
+	}
+	if(contain(res, "lr")){
+		lr = std::stof(res["lr"]);
+	}
+	if(contain(res, "seed")){
+		int seed = std::stoi(res["seed"]);
+		voc.setSeed(seed);
+	}
+	if(contain(res, "train")){
+		train = true;
 	}
 
 	if(!voc.setVocFolder(voc_dir)){
 		return 1;
 	}
 
+	voc.setPasses(passes);
+	voc.setBatch(batch);
+	voc.setLerningRate(lr);
+
 	int id = 25;
 	int cnt = 0;
 
-	const int CNT = 100;
+	if(!train){
+		std::vector< ct::Matf > r, im;
+		Annotation an = voc.getGroundTruthMat(25, 2, 30, im, r);
 
-	std::vector< ct::Matf > r, im;
-	Annotation an = voc.getGroundTruthMat(25, 2, 30, im, r);
+		printf("<<<< filename %s >>>>\n", an.filename.c_str());
+		for(size_t i = 0; i < an.objs.size(); ++i){
+			Obj &obj = an.objs[i];
+			printf("obj %s\t x=%d, y=%d, w=%d, h=%d\n", obj.name.c_str(), obj.rects.x, obj.rects.y,
+				   obj.rects.width, obj.rects.height);
+		}
+		for(int i = 0; i < r.size(); ++i){
+			std::cout << "-->" << i << std::endl;
+			std::cout << r[i].print() << std::endl;
+		}
+		printf("<<<<<< end >>>>>>>");
 
-	printf("<<<< filename %s >>>>\n", an.filename.c_str());
-	for(size_t i = 0; i < an.objs.size(); ++i){
-		Obj &obj = an.objs[i];
-		printf("obj %s\t x=%d, y=%d, w=%d, h=%d\n", obj.name.c_str(), obj.rects.x, obj.rects.y,
-			   obj.rects.width, obj.rects.height);
-	}
-	for(int i = 0; i < r.size(); ++i){
-		std::cout << "-->" << i << std::endl;
-		std::cout << r[i].print() << std::endl;
-	}
-	printf("<<<<<< end >>>>>>>");
+		r.resize(0);
+		std::vector< int > inds;
+		inds.push_back(3);
+		inds.push_back(25);
+		inds.push_back(21);
+		voc.getGroundTruthMat(inds, 2, 30, im, r);
+		std::cout << "Mat[0] size: " << r[0].rows << "," << r[0].cols << std::endl;
 
-	r.resize(0);
-	std::vector< int > inds;
-	inds.push_back(3);
-	inds.push_back(25);
-	inds.push_back(21);
-	voc.getGroundTruthMat(inds, 2, 30, im, r);
-	std::cout << "Mat[0] size: " << r[0].rows << "," << r[0].cols << std::endl;
+		for(int i = 0; i < r.size(); ++i){
+			std::cout << "-->" << i << std::endl;
+			std::cout << r[i].print() << std::endl;
+		}
 
-	for(int i = 0; i < r.size(); ++i){
-		std::cout << "-->" << i << std::endl;
-		std::cout << r[i].print() << std::endl;
-	}
+		const int CNT = 100;
 
-	while(1){
+		while(1){
+			if(!voc.show(id))
+				break;
 
-		if(!voc.show(id))
-			break;
+			if(cnt++ > CNT){
+				id += 1;
+				cnt = 0;
+				if(id >= voc.size()){
+					id = 0;
+				}
+			}
 
-//		if(cnt++ > CNT){
-//			id += 1;
-//			cnt = 0;
-//			if(id >= voc.size()){
-//				id = 0;
-//			}
-//		}
-
-		int ch = cv::waitKey(20);
-		if(ch == 13)
-			break;
+			int ch = cv::waitKey(20);
+			if(ch == 13)
+				break;
+		}
+	}else{
+		voc.doPass();
 	}
 
 	return 0;

@@ -86,6 +86,7 @@ public:
 	void setLerningRate(float lr);
 	int numSavePass() const;
 	void setNumSavePass(int num);
+	void setSeed(int seed);
 
 	void doPass();
 
