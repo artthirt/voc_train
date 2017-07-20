@@ -66,7 +66,7 @@ public:
 
 	void loadModel(const QString& model);
 
-	void getGroundTruthMat(int index, int boxes, int classes, std::vector<ct::Matf> &images,
+	Annotation &getGroundTruthMat(int index, int boxes, int classes, std::vector<ct::Matf> &images,
 						   std::vector< ct::Matf >& res, int row = 0, int rows = 1);
 	void getGroundTruthMat(std::vector<int> indices, int boxes, int classes,
 						   std::vector<ct::Matf> &images, std::vector< ct::Matf >& res);

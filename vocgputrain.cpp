@@ -148,7 +148,10 @@ bool VOCGpuTrain::show(int index)
 
 	for(int i = 0; i < it.objs.size(); ++i){
 		cv::rectangle(out, it.objs[i].rects, cv::Scalar(0, 0, 255), 1);
-		cv::putText(out, it.objs[i].name, it.objs[i].rects.tl(), 1, 1, cv::Scalar(0, 0, 255), 1);
+
+		std::stringstream ss;
+		ss << i << " " << it.objs[i].name;
+		cv::putText(out, ss.str(), it.objs[i].rects.tl(), 1, 1, cv::Scalar(0, 0, 255), 1);
 
 		cv::Rect rec = it.objs[i].rects;
 		rec.x = (float)rec.x / m_sample.cols * W;
@@ -195,13 +198,15 @@ bool VOCGpuTrain::show(int index)
 }
 
 
-void VOCGpuTrain::getGroundTruthMat(int index, int boxes, int classes, std::vector< ct::Matf >& images,
+Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, int classes, std::vector< ct::Matf >& images,
 									std::vector<ct::Matf> &res, int row, int rows)
 {
 	if(index < 0 || index > m_annotations.size()){
 		throw;
 	}
 	Annotation& it = m_annotations[index];
+
+	int D = W / K;
 
 	int cnt_cls = K * K;
 	int cnt_bxs = K * K;
@@ -276,8 +281,8 @@ void VOCGpuTrain::getGroundTruthMat(int index, int boxes, int classes, std::vect
 
 		ct::Matf& Bxs = res[id2 + off];
 		float *dBxs = Bxs.ptr(row);
-		dBxs[4 * bi + 0] = cx;
-		dBxs[4 * bi + 1] = cy;
+		dBxs[4 * bi + 0] = (cx * W - bx * D) / D;
+		dBxs[4 * bi + 1] = (cy * W - by * D) / D;
 		dBxs[4 * bi + 2] = dw;
 		dBxs[4 * bi + 3] = dh;
 
@@ -287,6 +292,8 @@ void VOCGpuTrain::getGroundTruthMat(int index, int boxes, int classes, std::vect
 
 		bxs[off] = bi + 1;
 	}
+
+	return it;
 }
 
 void VOCGpuTrain::getGroundTruthMat(std::vector<int> indices, int boxes, int classes,

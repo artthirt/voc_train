@@ -147,18 +147,25 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	int id = 0;
+	int id = 25;
 	int cnt = 0;
 
 	const int CNT = 100;
 
 	std::vector< ct::Matf > r, im;
-	voc.getGroundTruthMat(25, 2, 30, im, r);
+	Annotation an = voc.getGroundTruthMat(25, 2, 30, im, r);
 
+	printf("<<<< filename %s >>>>\n", an.filename.c_str());
+	for(size_t i = 0; i < an.objs.size(); ++i){
+		Obj &obj = an.objs[i];
+		printf("obj %s\t x=%d, y=%d, w=%d, h=%d\n", obj.name.c_str(), obj.rects.x, obj.rects.y,
+			   obj.rects.width, obj.rects.height);
+	}
 	for(int i = 0; i < r.size(); ++i){
 		std::cout << "-->" << i << std::endl;
 		std::cout << r[i].print() << std::endl;
 	}
+	printf("<<<<<< end >>>>>>>");
 
 	r.resize(0);
 	std::vector< int > inds;
@@ -178,13 +185,13 @@ int main(int argc, char *argv[])
 		if(!voc.show(id))
 			break;
 
-		if(cnt++ > CNT){
-			id += 1;
-			cnt = 0;
-			if(id >= voc.size()){
-				id = 0;
-			}
-		}
+//		if(cnt++ > CNT){
+//			id += 1;
+//			cnt = 0;
+//			if(id >= voc.size()){
+//				id = 0;
+//			}
+//		}
 
 		int ch = cv::waitKey(20);
 		if(ch == 13)
