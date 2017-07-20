@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "gpumat.h"
+#include "gpu_mlp.h"
 
 const QString path_annotations("Annotations");
 const QString path_images("JPEGImages");
@@ -392,37 +393,39 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::Gp
 	if(X.empty() || m_conv.empty() || m_mlp.empty())
 		return;
 
-	std::vector< gpumat::GpuMat > *pX = &X;
+	using namespace gpumat;
+
+	std::vector< GpuMat > *pX = &X;
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
-		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
-		cnv.forward(pX, gpumat::RELU);
+		conv2::convnn_gpu& cnv = m_conv[i];
+		cnv.forward(pX, RELU);
 		pX = &cnv.XOut();
 	}
 
-	gpumat::conv2::vec2mat(m_conv.back().XOut(), m_vec2mat);
+	conv2::vec2mat(m_conv.back().XOut(), m_vec2mat);
 
-	gpumat::GpuMat *pX2 = &m_vec2mat;
+	GpuMat *pX2 = &m_vec2mat;
 
-	gpumat::etypefunction func = gpumat::RELU;
+	etypefunction func = RELU;
 
 	for(size_t i = 0; i < m_mlp.size(); ++i){
 		if(i == m_mlp.size() - 1)
-			func = gpumat::LINEAR;
-		gpumat::mlp& mlp = m_mlp[i];
-		mlp.forward(pX2, func);
-		pX2 = &mlp.XOut();
+			func = LINEAR;
+		mlp& _mlp = m_mlp[i];
+		_mlp.forward(pX2, func);
+		pX2 = &_mlp.Y();
 	}
 
-	gpumat::hsplit2(*pX2, m_cols, *pY);
+	hsplit2(*pX2, m_cols, *pY);
 
 	m_partZ.resize(K * K);
 
 	for(int i = first_classes; i < last_classes + 1; ++i){
-		gpumat::softmax((*pY)[i], 1, m_partZ[i]);
+		softmax((*pY)[i], 1, m_partZ[i]);
 	}
 	for(int i = first_confidences; i < last_confidences + 1; ++i){
-		gpumat::sigmoid((*pY)[i]);
+		sigmoid((*pY)[i]);
 	}
 }
 
