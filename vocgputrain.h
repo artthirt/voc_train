@@ -75,6 +75,20 @@ public:
 
 	void init();
 
+	void forward(std::vector< gpumat::GpuMat >& X, std::vector< gpumat::GpuMat >* pY);
+	void backward(std::vector< gpumat::GpuMat >& pY);
+
+	int passes() const;
+	void setPasses(int passes);
+	int batch() const;
+	void setBatch(int batch);
+	float lr() const;
+	void setLerningRate(float lr);
+	int numSavePass() const;
+	void setNumSavePass(int num);
+
+	void doPass();
+
 private:
 	QString m_vocdir;
 	QString m_model;
@@ -90,8 +104,21 @@ private:
 
 	//////////
 
+	int m_passes;
+	int m_batch;
+	int m_lr;
+	int m_num_save_pass;
+	int m_check_count;
+
 	std::vector< gpumat::conv2::convnn_gpu > m_conv;
 	std::vector< gpumat::mlp > m_mlp;
+	gpumat::GpuMat m_vec2mat;
+	gpumat::GpuMat m_D;
+	gpumat::MlpOptim m_optim;
+	std::vector< int > m_cols;
+	int m_out_features;
+
+	std::vector< gpumat::GpuMat > m_partZ;
 
 	//////////
 

@@ -13,6 +13,15 @@ const QString path_images("JPEGImages");
 
 const int W = 448;
 const int K = 7;
+const int Classes = 21;
+const int Boxes = 2;
+
+const int first_classes = 0;
+const int last_classes = first_classes + K * K - 1;
+const int first_boxes = last_classes;
+const int last_boxes = first_boxes + K * K - 1;
+const int first_confidences = last_boxes;
+const int last_confidences = first_confidences + K * K - 1;
 
 VOCGpuTrain::VOCGpuTrain()
 {
@@ -20,6 +29,27 @@ VOCGpuTrain::VOCGpuTrain()
 	m_curObj = 0;
 	m_refSize = 0;
 	m_index = -1;
+	m_check_count = 300;
+
+	m_passes = 100000;
+	m_batch = 5;
+	m_lr = 0.00001;
+	m_num_save_pass = 100;
+
+	m_out_features = 0;
+	for(int i = 0; i < K * K; ++i){
+		m_cols.push_back(Classes);
+		m_out_features += Classes;
+	}
+	for(int i = 0; i < K * K; ++i){
+		m_cols.push_back(4 * Boxes);
+		m_out_features += (4 * Boxes);
+	}
+	for(int i = 0; i < K * K; ++i){
+		m_cols.push_back(Boxes);
+		m_out_features += Boxes;
+	}
+	printf("Output features: %d, Output matrices: %d\n", m_out_features, m_cols.size());
 }
 
 bool VOCGpuTrain::setVocFolder(const QString sdir)
@@ -189,7 +219,7 @@ void VOCGpuTrain::getGroundTruthMat(int index, int boxes, int classes, std::vect
 		res.resize(all_cnt);
 	for(int i = id1; i < id1 + cnt1; ++i){
 		if(res[i].empty())
-			res[i] = ct::Matf::zeros(rows, classes);
+			res[i] = ct::Matf::zeros(rows, 1);
 	}
 	for(int i = id2; i < id2 + cnt2; ++i){
 		if(res[i].empty())
@@ -242,7 +272,7 @@ void VOCGpuTrain::getGroundTruthMat(int index, int boxes, int classes, std::vect
 
 		ct::Matf& Cls = res[id1 + off];
 		float *dCls = Cls.ptr(row);
-		dCls[cls] = 1.;
+		dCls[0] = cls;
 
 		ct::Matf& Bxs = res[id2 + off];
 		float *dBxs = Bxs.ptr(row);
@@ -280,7 +310,7 @@ void VOCGpuTrain::getGroundTruthMat(std::vector<int> indices, int boxes, int cla
 		res.resize(all_cnt);
 	for(int i = id1; i < id1 + cnt1; ++i){
 		if(res[i].empty())
-			res[i] = ct::Matf::zeros(rows, classes);
+			res[i] = ct::Matf::zeros(rows, 1);
 	}
 	for(int i = id2; i < id2 + cnt2; ++i){
 		if(res[i].empty())
@@ -348,6 +378,187 @@ void VOCGpuTrain::getImage(const std::string &filename, ct::Matf &res, bool flip
 void VOCGpuTrain::init()
 {
 
+}
+
+void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::GpuMat> *pY)
+{
+	if(X.empty() || m_conv.empty() || m_mlp.empty())
+		return;
+
+	std::vector< gpumat::GpuMat > *pX = &X;
+
+	for(size_t i = 0; i < m_conv.size(); ++i){
+		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
+		cnv.forward(pX, gpumat::RELU);
+		pX = &cnv.XOut();
+	}
+
+	gpumat::conv2::vec2mat(m_conv.back().XOut(), m_vec2mat);
+
+	gpumat::GpuMat *pX2 = &m_vec2mat;
+
+	gpumat::etypefunction func = gpumat::RELU;
+
+	for(size_t i = 0; i < m_mlp.size(); ++i){
+		if(i == m_mlp.size() - 1)
+			func = gpumat::LINEAR;
+		gpumat::mlp& mlp = m_mlp[i];
+		mlp.forward(pX2, func);
+		pX2 = &mlp.XOut();
+	}
+
+	gpumat::hsplit2(*pX2, m_cols, *pY);
+
+	m_partZ.resize(K * K);
+
+	for(int i = first_classes; i < last_classes + 1; ++i){
+		gpumat::softmax((*pY)[i], 1, m_partZ[i]);
+	}
+	for(int i = first_confidences; i < last_confidences + 1; ++i){
+		gpumat::sigmoid((*pY)[i]);
+	}
+}
+
+void VOCGpuTrain::backward(std::vector<gpumat::GpuMat> &pY)
+{
+	gpumat::hconcat2(pY, m_D);
+
+	gpumat::GpuMat *pD = &m_D;
+	for(int i = m_mlp.size() - 1; i > -1; i--){
+		gpumat::mlp& mlp = m_mlp[i];
+		mlp.backward(*pD, i == 0);
+		pD = &mlp.DltA0;
+	}
+	m_optim.pass(m_mlp);
+}
+
+int VOCGpuTrain::passes() const
+{
+	return m_passes;
+}
+
+void VOCGpuTrain::setPasses(int passes)
+{
+	m_passes = passes;
+}
+
+int VOCGpuTrain::batch() const
+{
+	return m_batch;
+}
+
+void VOCGpuTrain::setBatch(int batch)
+{
+	m_batch = batch;
+}
+
+float VOCGpuTrain::lr() const
+{
+	return m_lr;
+}
+
+void VOCGpuTrain::setLerningRate(float lr)
+{
+	m_lr = lr;
+
+	m_optim.setAlpha(lr);
+}
+
+int VOCGpuTrain::numSavePass() const
+{
+	return m_num_save_pass;
+}
+
+void VOCGpuTrain::setNumSavePass(int num)
+{
+	m_num_save_pass = num;
+}
+
+void cnv2gpu(std::vector< ct::Matf >& In, std::vector< gpumat::GpuMat >& Out)
+{
+	Out.resize(In.size());
+	for(size_t i = 0; i < In.size(); ++i){
+		gpumat::convert_to_gpu(In[i], Out[i]);
+	}
+}
+
+void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y)
+{
+	for(int i = first_classes; i < last_classes + 1; ++i){
+		gpumat::subIndOne(t[i], y[i], t[i]);
+	}
+	for(int i = first_boxes; i < last_boxes + 1; ++i){
+		gpumat::sub(t[i], y[i]);
+	}
+	for(int i = first_confidences; i < last_confidences + 1; ++i){
+		gpumat::sub(t[i], y[i]);
+	}
+}
+
+float get_loss(std::vector< gpumat::GpuMat >& t)
+{
+	ct::Matf mat;
+	float res = 0;
+	for(int i = first_classes; i < last_classes + 1; ++i){
+		gpumat::elemwiseSqr(t[i], t[i]);
+		gpumat::convert_to_mat(t[i], mat);
+		res += mat.sum() / mat.rows;
+	}
+	for(int i = first_boxes; i < last_boxes + 1; ++i){
+		gpumat::elemwiseSqr(t[i], t[i]);
+		gpumat::convert_to_mat(t[i], mat);
+		res += mat.sum() / mat.rows;
+	}
+	for(int i = first_confidences; i < last_confidences + 1; ++i){
+		gpumat::elemwiseSqr(t[i], t[i]);
+		gpumat::convert_to_mat(t[i], mat);
+		res += mat.sum() / mat.rows;
+	}
+	return res;
+}
+
+void VOCGpuTrain::doPass()
+{
+	std::vector< ct::Matf > mX, mY;
+
+	std::vector< gpumat::GpuMat > X;
+	std::vector< gpumat::GpuMat > y, t;
+	std::vector< int > cols;
+	for(int i = 0; i < m_passes; ++i){
+		cv::randu(cols, 0, m_annotations.size() - 1);
+		getGroundTruthMat(cols, Boxes, Classes, mX, mY);
+		cnv2gpu(mX, X);
+		cnv2gpu(mY, y);
+
+		forward(X, &t);
+
+		get_delta(t, y);
+
+		backward(t);
+
+		printf("pass=%d     \r");
+
+		if((i % m_num_save_pass) == 0){
+			int k = 0;
+			float loss = 0;
+			while( k < m_check_count){
+				cv::randu(cols, 0, m_annotations.size() - 1);
+				getGroundTruthMat(cols, Boxes, Classes, mX, mY);
+				cnv2gpu(mX, X);
+				cnv2gpu(mY, y);
+
+				forward(X, &t);
+
+				get_delta(t, y);
+
+				loss += get_loss(t);
+
+				k += m_batch;
+			}
+			loss /= m_check_count;
+			printf("pass=%d, loss=%f    \n", i, loss);
+		}
+	}
 }
 
 size_t VOCGpuTrain::size() const

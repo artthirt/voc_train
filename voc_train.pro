@@ -1,6 +1,8 @@
 TEMPLATE = app
 TARGET = voc_train
 
+CONFIG += console
+
 QT += core xml
 
 HEADERS += \
