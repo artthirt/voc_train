@@ -72,7 +72,7 @@ void test(bool save = false)
 	mt.push_back(&C);
 	mt.push_back(&D);
 
-	for(int i = 0; i < mt.size(); ++i){
+	for(size_t i = 0; i < mt.size(); ++i){
 		ct::Matf* m = mt[i];
 
 		int id = 0;
@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
 			printf("obj %s\t x=%d, y=%d, w=%d, h=%d\n", obj.name.c_str(), obj.rects.x, obj.rects.y,
 				   obj.rects.width, obj.rects.height);
 		}
-		for(int i = 0; i < r.size(); ++i){
+		for(size_t i = 0; i < r.size(); ++i){
 			std::cout << "-->" << i << std::endl;
 			std::cout << r[i].print() << std::endl;
 		}
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 		voc.getGroundTruthMat(inds, 2, im, r);
 		std::cout << "Mat[0] size: " << r[0].rows << "," << r[0].cols << std::endl;
 
-		for(int i = 0; i < r.size(); ++i){
+		for(size_t i = 0; i < r.size(); ++i){
 			std::cout << "-->" << i << std::endl;
 			std::cout << r[i].print() << std::endl;
 		}
