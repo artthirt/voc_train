@@ -68,10 +68,10 @@ public:
 	void saveModel(const QString& name);
 	void setModelSaveName(const QString& name);
 
-	Annotation &getGroundTruthMat(int index, int boxes, int classes, std::vector<ct::Matf> &images,
-						   std::vector< ct::Matf >& res, int row = 0, int rows = 1);
-	void getGroundTruthMat(std::vector<int> indices, int boxes, int classes,
-						   std::vector<ct::Matf> &images, std::vector< ct::Matf >& res);
+	Annotation &getGroundTruthMat(int index, int boxes, std::vector<ct::Matf> &images,
+						   std::vector< ct::Matf >& res, int row = 0, int rows = 1, bool flip = false);
+	void getGroundTruthMat(std::vector<int> indices, int boxes,
+						   std::vector<ct::Matf> &images, std::vector< ct::Matf >& res, bool flip = false);
 
 	void getImage(const std::string& filename, ct::Matf& res, bool flip = false);
 
@@ -124,6 +124,7 @@ private:
 	int m_out_features;
 
 	std::vector< gpumat::GpuMat > m_partZ;
+	std::vector< gpumat::GpuMat > m_delta_cnv;
 
 	//////////
 

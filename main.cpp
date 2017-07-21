@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
 
 	if(!train){
 		std::vector< ct::Matf > r, im;
-		Annotation an = voc.getGroundTruthMat(25, 2, 30, im, r);
+		Annotation an = voc.getGroundTruthMat(25, 2, im, r);
 
 		printf("<<<< filename %s >>>>\n", an.filename.c_str());
 		for(size_t i = 0; i < an.objs.size(); ++i){
@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
 		inds.push_back(3);
 		inds.push_back(25);
 		inds.push_back(21);
-		voc.getGroundTruthMat(inds, 2, 30, im, r);
+		voc.getGroundTruthMat(inds, 2, im, r);
 		std::cout << "Mat[0] size: " << r[0].rows << "," << r[0].cols << std::endl;
 
 		for(int i = 0; i < r.size(); ++i){
