@@ -60,7 +60,7 @@ public:
 	VOCGpuTrain();
 	bool setVocFolder(const QString sdir);
 
-	bool show(int index);
+	bool show(int index, bool flip = false, const std::__cxx11::string name = "out");
 
 	size_t size() const;
 
@@ -109,7 +109,7 @@ private:
 
 	int m_passes;
 	int m_batch;
-	int m_lr;
+	float m_lr;
 	int m_num_save_pass;
 	int m_check_count;
 

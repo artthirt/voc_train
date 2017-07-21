@@ -8,6 +8,7 @@
 
 #include "gpumat.h"
 #include "gpu_mlp.h"
+#include "matops.h"
 
 const QString path_annotations("Annotations");
 const QString path_images("JPEGImages");
@@ -43,7 +44,7 @@ VOCGpuTrain::VOCGpuTrain()
 	m_passes = 100000;
 	m_batch = 5;
 	m_lr = 0.00001;
-	m_num_save_pass = 100;
+	m_num_save_pass = 300;
 
 	m_out_features = 0;
 	for(int i = 0; i < K * K; ++i){
@@ -118,7 +119,7 @@ bool VOCGpuTrain::setVocFolder(const QString sdir)
 	return true;
 }
 
-bool VOCGpuTrain::show(int index)
+bool VOCGpuTrain::show(int index, bool flip, const std::string name)
 {
 	if(!m_annotations.size())
 		return false;
@@ -144,11 +145,18 @@ bool VOCGpuTrain::show(int index)
 	cv::Mat out;
 	m_sample.copyTo(out);
 
+	if(flip){
+		cv::flip(out, out, 1);
+	}
+
 	const int W = 448;
 
 	cv::Mat out2;
 	cv::Size size(W, W);
 	cv::resize(m_sample, out2, size);
+	if(flip){
+		cv::flip(out2, out2, 1);
+	}
 	cv::cvtColor(out2, out2, CV_RGB2RGBA);
 
 	int K = 7;
@@ -156,13 +164,20 @@ bool VOCGpuTrain::show(int index)
 	int D = W / K;
 
 	for(int i = 0; i < it.objs.size(); ++i){
-		cv::rectangle(out, it.objs[i].rects, cv::Scalar(0, 0, 255), 1);
+		cv::Rect rec = it.objs[i].rects;
+		if(flip){
+			rec.x = out.cols - rec.x - rec.width;
+		}
+		cv::rectangle(out, rec, cv::Scalar(0, 0, 255), 1);
 
 		std::stringstream ss;
 		ss << i << " " << it.objs[i].name;
-		cv::putText(out, ss.str(), it.objs[i].rects.tl(), 1, 1, cv::Scalar(0, 0, 255), 1);
+		cv::putText(out, ss.str(), rec.tl(), 1, 1, cv::Scalar(0, 0, 255), 1);
 
-		cv::Rect rec = it.objs[i].rects;
+//		rec = it.objs[i].rects;
+//		if(flip){
+//			rec.x = out.cols - rec.x - rec.width;
+//		}
 		rec.x = (float)rec.x / m_sample.cols * W;
 		rec.y = (float)rec.y / m_sample.rows * W;
 		rec.width = (float)rec.width / m_sample.cols * W;
@@ -202,8 +217,8 @@ bool VOCGpuTrain::show(int index)
 		cv::line(out2, cv::Point(X, 0), cv::Point(X, out2.rows), cv::Scalar(255, 150, 0), 1);
 	}
 
-	cv::imshow("sample", out);
-	cv::imshow("sample2", out2);
+	cv::imshow(name, out);
+	cv::imshow(name + "2", out2);
 }
 
 
@@ -584,6 +599,7 @@ float get_loss(std::vector< gpumat::GpuMat >& t)
 void VOCGpuTrain::doPass()
 {
 	std::vector< ct::Matf > mX, mY;
+	ct::Matf m1, m2, s;
 
 	std::vector< gpumat::GpuMat > X;
 	std::vector< gpumat::GpuMat > y, t;
@@ -595,16 +611,27 @@ void VOCGpuTrain::doPass()
 		cnv2gpu(mX, X);
 		cnv2gpu(mY, y);
 
+		gpumat::convert_to_mat(m_mlp.back().W, m1);
+
 		forward(X, &t);
 
 		get_delta(t, y);
 
 		backward(t);
 
-		printf("pass=%d     \r", i);
+//		gpumat::convert_to_mat(m_mlp.back().W, m2);
+//		s = m2 - m1;
+//		ct::v_elemwiseSqr(s);
+//		float fs = s.sum();
+
+//		gpumat::convert_to_mat(t[0], m1);
+//		ct::v_elemwiseSqr(m1);
+//		float s2 = m1.sum();
+
+		printf("pass=%d    \r", i);
 		std::cout << std::flush;
 
-		if((i % m_num_save_pass) == 0){
+		if((i % m_num_save_pass) == 0/* && i > 0*/){
 			int k = 0;
 			float loss = 0;
 			while( k < m_check_count){
@@ -719,7 +746,8 @@ void VOCGpuTrain::saveModel(const QString &name)
 	}
 
 	for(size_t i = 0; i < m_mlp.size(); ++i){
-		m_mlp[i].write2(fs);
+		gpumat::mlp& mlp = m_mlp[i];
+		mlp.write2(fs);
 	}
 
 	printf("model saved.\n");

@@ -165,23 +165,6 @@ int main(int argc, char *argv[])
 	if(contain(res, "train")){
 		train = true;
 	}
-	bool model_voc_loaded = false;
-	if(contain(res, "load_voc")){
-		std::string fn = res["load_voc"];
-		model_voc_loaded = voc.loadModel(fn.c_str(), true);
-		if(model_voc_loaded){
-			printf("<<<< model for VOC loaded >>>>\n");
-		}
-	}
-	if(contain(res, "load_pretrain") && !model_voc_loaded){
-		std::string fn = res["load_pretrain"];
-		voc.loadModel(fn.c_str(), false);
-	}
-	if(contain(res, "save")){
-		std::string fn = res["save"];
-		voc.setModelSaveName(fn.c_str());
-	}
-
 	if(!voc.setVocFolder(voc_dir)){
 		return 1;
 	}
@@ -222,10 +205,12 @@ int main(int argc, char *argv[])
 			std::cout << r[i].print() << std::endl;
 		}
 
-		const int CNT = 100;
+		const int CNT = 1000;
 
 		while(1){
-			if(!voc.show(id))
+			if(!voc.show(id, false))
+				break;
+			if(!voc.show(id, true, "inv"))
 				break;
 
 			if(cnt++ > CNT){
@@ -241,6 +226,23 @@ int main(int argc, char *argv[])
 				break;
 		}
 	}else{
+		bool model_voc_loaded = false;
+		if(contain(res, "load_voc")){
+			std::string fn = res["load_voc"];
+			model_voc_loaded = voc.loadModel(fn.c_str(), true);
+			if(model_voc_loaded){
+				printf("<<<< model for VOC loaded >>>>\n");
+			}
+		}
+		if(contain(res, "load_pretrain") && !model_voc_loaded){
+			std::string fn = res["load_pretrain"];
+			voc.loadModel(fn.c_str(), false);
+		}
+		if(contain(res, "save")){
+			std::string fn = res["save"];
+			voc.setModelSaveName(fn.c_str());
+		}
+
 		voc.doPass();
 	}
 
