@@ -161,7 +161,6 @@ int main(int argc, char *argv[])
 	}
 	if(contain(res, "seed")){
 		seed = std::stoi(res["seed"]);
-		voc.setSeed(seed);
 	}
 	if(contain(res, "train")){
 		train = true;
@@ -249,9 +248,11 @@ int main(int argc, char *argv[])
 			voc.setModelSaveName(fn.c_str());
 		}
 
+		voc.setSeed(seed);
+
 		printf("learning rate %f\n", lr);
-		printf("passes %f\n", passes);
-		printf("batch %f\n", batch);
+		printf("passes %d\n", passes);
+		printf("batch %d\n", batch);
 		printf("seed %d\n", seed);
 
 		voc.doPass();
