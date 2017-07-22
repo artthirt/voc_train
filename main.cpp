@@ -198,6 +198,11 @@ int main(int argc, char *argv[])
 		inds.push_back(25);
 		inds.push_back(21);
 		voc.getGroundTruthMat(inds, 2, im, r);
+		inds.clear();
+		inds.push_back(11);
+		inds.push_back(25);
+		inds.push_back(41);
+		voc.getGroundTruthMat(inds, 2, im, r);
 		std::cout << "Mat[0] size: " << r[0].rows << "," << r[0].cols << std::endl;
 
 		for(size_t i = 0; i < r.size(); ++i){
