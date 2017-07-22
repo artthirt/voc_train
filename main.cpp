@@ -145,6 +145,7 @@ int main(int argc, char *argv[])
 	int passes = 100000, batch = 10;
 	float lr = 0.0001;
 	bool train = false;
+	int seed = 1;
 
 	if(contain(res, "voc")){
 		voc_dir = QString::fromStdString(res["voc"]);
@@ -159,7 +160,7 @@ int main(int argc, char *argv[])
 		lr = std::stof(res["lr"]);
 	}
 	if(contain(res, "seed")){
-		int seed = std::stoi(res["seed"]);
+		seed = std::stoi(res["seed"]);
 		voc.setSeed(seed);
 	}
 	if(contain(res, "train")){
@@ -247,6 +248,11 @@ int main(int argc, char *argv[])
 			std::string fn = res["save"];
 			voc.setModelSaveName(fn.c_str());
 		}
+
+		printf("learning rate %f\n", lr);
+		printf("passes %f\n", passes);
+		printf("batch %f\n", batch);
+		printf("seed %d\n", seed);
 
 		voc.doPass();
 	}
