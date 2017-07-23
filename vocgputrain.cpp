@@ -18,10 +18,10 @@ const int K = 7;
 const int Classes = 30;
 const int Boxes = 2;
 
-const int cnv_size = 4;
+const int cnv_size = 5;
 const int mlp_size = 3;
 
-const int cnv_do_back_layers = 0;
+const int cnv_do_back_layers = 1;
 const int lrs = 4;
 
 const int first_classes = 0;
@@ -119,6 +119,53 @@ bool VOCGpuTrain::setVocFolder(const QString sdir)
 	return true;
 }
 
+void fillP(cv::Mat& im, cv::Rect& rec, cv::Scalar col = cv::Scalar(0, 0, 200, 0))
+{
+	int D = W / K;
+	int bxs = (rec.x * K) / W;
+	int bxe = ((rec.x + rec.width) * K) / W;
+	int bys = (rec.y * K) / W;
+	int bye = ((rec.y + rec.height) * K) / W;
+	int cx = rec.x + rec.width/2;
+	int cy = rec.y + rec.height/2;
+	int bx = cx/K;
+	int by = cy/K;
+
+	std::vector<float> P[K][K];
+
+	for(int y = bys; y <= bye; ++y){
+		for(int x = bxs; x <= bxe; ++x){
+
+			int x1 = x * D;
+			int x2 = x1 + D;
+			int y1 = y * D;
+			int y2 = y1 + D;
+
+			int xr = rec.x + rec.width;
+			int yr = rec.y + rec.height;
+
+			if(rec.x > x1 && rec.x < x2)x1 = rec.x;
+			if(rec.y > y1 && rec.y < y2)y1 = rec.y;
+			if(xr > x1 && xr < x2)x2 = xr;
+			if(yr > y1 && yr < y2)y2 = yr;
+
+			cv::Rect rt = cv::Rect(x1, y1, x2 - x1, y2 - y1);
+
+			float p = (float)rt.width * rt.height / (D * D);
+			if(x == bx && y == by){
+				p = 1;
+			}
+
+			cv::rectangle(im, rt,
+						  cv::Scalar(0, 200, 0), 2);
+			//cv::Rect roi(x * D, y * D, D, D);
+			cv::Mat _fill = im(rt);
+			cv::Mat color(_fill.size(), _fill.type(), cv::Scalar(0, 0 + p * 200, 0));
+			cv::addWeighted(color, 0.5, _fill, 0.5, 0, _fill);
+		}
+	}
+}
+
 bool VOCGpuTrain::show(int index, bool flip, const std::string name)
 {
 	if(!m_annotations.size())
@@ -183,7 +230,7 @@ bool VOCGpuTrain::show(int index, bool flip, const std::string name)
 		rec.width = (float)rec.width / m_sample.cols * W;
 		rec.height = (float)rec.height / m_sample.rows * W;
 
-		cv::rectangle(out2, rec, cv::Scalar(0, 0, 255), 1);
+//		cv::rectangle(out2, rec, cv::Scalar(0, 0, 255), 1);
 
 		float cx = (float)(rec.x + rec.width/2) / W;
 		float cy = (float)(rec.y + rec.height/2) / W;
@@ -200,10 +247,12 @@ bool VOCGpuTrain::show(int index, bool flip, const std::string name)
 			continue;
 		}
 
-		cv::Mat _fill = out2(roi);
-		cv::Mat color(_fill.size(), _fill.type(), cv::Scalar(0, 0, 200, 0));
-		cv::addWeighted(color, 0.5, _fill, 0.5, 0, _fill);
+//		cv::Mat _fill = out2(roi);
+//		cv::Mat color(_fill.size(), _fill.type(), cv::Scalar(0, 0, 200, 0));
+//		cv::addWeighted(color, 0.5, _fill, 0.5, 0, _fill);
 		//cv::rectangle(out2, cv::Rect(bx * W, by * W, W / K, W / K), cv::Scalar(0, 0, 255, 120), 1);
+
+		fillP(out2, rec, cv::Scalar(0, 200, 0));
 
 		cv::circle(out2, cv::Point(cx * W, cy * W), 4, cv::Scalar(0, 200, 0), 1);
 
@@ -219,8 +268,82 @@ bool VOCGpuTrain::show(int index, bool flip, const std::string name)
 
 	cv::imshow(name, out);
 	cv::imshow(name + "2", out2);
+
+	return true;
 }
 
+void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, int bxid, const cv::Rect2f& Bx, int row = 0)
+{
+	if(classes.empty())
+		return;
+
+	int D = W / K;
+	int bxs = (rec.x * K) / W;
+	int bxe = ((rec.x + rec.width) * K) / W;
+	int bys = (rec.y * K) / W;
+	int bye = ((rec.y + rec.height) * K) / W;
+	int cx = rec.x + rec.width/2;
+	int cy = rec.y + rec.height/2;
+	int bx = (cx * K)/W;
+	int by = (cy * K)/W;
+
+	if(bxid >= Boxes)
+		throw new std::string("oops. some error!!!");
+
+	std::vector<float> P[K][K];
+
+	if(bxe == K)bxe = K - 1;
+	if(bye == K)bye = K - 1;
+
+	for(int y = bys; y <= bye; ++y){
+		for(int x = bxs; x <= bxe; ++x){
+
+			int x1 = x * D;
+			int x2 = x1 + D;
+			int y1 = y * D;
+			int y2 = y1 + D;
+
+			int xr = rec.x + rec.width;
+			int yr = rec.y + rec.height;
+
+			if(rec.x > x1 && rec.x < x2)x1 = rec.x;
+			if(rec.y > y1 && rec.y < y2)y1 = rec.y;
+			if(xr > x1 && xr < x2)x2 = xr;
+			if(yr > y1 && yr < y2)y2 = yr;
+
+			cv::Rect rt = cv::Rect(x1, y1, x2 - x1, y2 - y1);
+
+			int off = y * K + x;
+
+			float p = (float)rt.width * rt.height / (D * D);
+			if(x == bx && y == by){
+				p = 1;
+				float *dB = classes[first_boxes + off].ptr(row);
+				dB[bxid * 4 + 0] = Bx.x;
+				dB[bxid * 4 + 1] = Bx.y;
+				dB[bxid * 4 + 2] = Bx.width;
+				dB[bxid * 4 + 3] = Bx.height;
+			}
+			float *dC = classes[first_classes + off].ptr(row);
+			dC[cls] = 1;
+
+//			float *dB = classes[first_boxes + off].ptr(row);
+//			dB[bxid * 4 + 0] = Bx.x;
+//			dB[bxid * 4 + 1] = Bx.y;
+//			dB[bxid * 4 + 2] = Bx.width;
+//			dB[bxid * 4 + 3] = Bx.height;
+
+			float *dCf = classes[first_confidences + off].ptr(row);
+			dCf[bxid] = p;
+//			cv::rectangle(im, rt,
+//						  cv::Scalar(0, 200, 0), 2);
+//			//cv::Rect roi(x * D, y * D, D, D);
+//			cv::Mat _fill = im(rt);
+//			cv::Mat color(_fill.size(), _fill.type(), cv::Scalar(0, 0 + p * 200, 0));
+//			cv::addWeighted(color, 0.5, _fill, 0.5, 0, _fill);
+		}
+	}
+}
 
 Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct::Matf >& images,
 									std::vector<ct::Matf> &res, int row, int rows, bool flip)
@@ -248,7 +371,7 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 		res.resize(all_cnt);
 	for(int i = id1; i < id1 + cnt1; ++i){
 		if(res[i].empty())
-			res[i] = ct::Matf::zeros(rows, 1);
+			res[i] = ct::Matf::zeros(rows, Classes);
 		res[i].ptr(row)[0] = 0;
 	}
 	for(int i = id2; i < id2 + cnt2; ++i){
@@ -297,35 +420,44 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 		int bx = cx * K;
 		int by = cy * K;
 
-		cv::Rect roi = cv::Rect((bx * W)/K, (by * W)/K, W / K, W / K);
-
-		if(roi.x > W || roi.y > W || roi.x + roi.width > W || roi.y + roi.height > W){
-			printf("oops. %d: (%d, %d), (%d, %d)", index, roi.x, roi.y, roi.width, roi.height);
-			continue;
-		}
 
 		int off = by * K + bx;
 		int bi = bxs[off];
-		if(bi > boxes){
+		if(bi >= boxes){
 			continue;
 		}
 
-		ct::Matf& Cls = res[id1 + off];
-		float *dCls = Cls.ptr(row);
-		dCls[0] = cls;
+		cv::Rect2f Bx;
+		Bx.x = (cx * W - bx * D) / D;
+		Bx.y = (cy * W - by * D) / D;
+		Bx.width = sqrtf(std::abs(dw));
+		Bx.height = sqrtf(std::abs(dh));
 
-		ct::Matf& Bxs = res[id2 + off];
-		float *dBxs = Bxs.ptr(row);
-		dBxs[4 * bi + 0] = (cx * W - bx * D) / D;
-		dBxs[4 * bi + 1] = (cy * W - by * D) / D;
-		dBxs[4 * bi + 2] = dw;
-		dBxs[4 * bi + 3] = dh;
-
-		ct::Matf& Cnfd = res[id3 + off];
-		float *dCnfd = Cnfd.ptr(row);
-		dCnfd[bi] = 1.;
+		getP(rec, res, cls, bi, Bx, row);
 
 		bxs[off] = bi + 1;
+	}
+
+	for(int i = first_classes; i < last_classes + 1; ++i){
+		ct::Matf& m = res[first_classes + i];
+		float* dC = m.ptr(row);
+		int cnt = 0;
+		for(int j = 0; j < Classes; ++j){
+			if(dC[j] > 0)
+				cnt++;
+		}
+		if(cnt){
+			for(int j = 0; j < Classes; ++j){
+				dC[j] /= cnt;
+			}
+		}else{
+			dC[0] = 1;
+//			float *dB = res[first_boxes + i].ptr(row);
+//			dB[0] = dB[1] = dB[4] = dB[5] = 0.5;
+//			dB[2] = dB[3] = dB[6] = dB[7] = 1;
+//			float *dCf = res[first_confidences + i].ptr(row);
+//			dCf[0] = dCf[1] = 1;
+		}
 	}
 
 	return it;
@@ -360,7 +492,7 @@ void VOCGpuTrain::getGroundTruthMat(std::vector<int> indices, int boxes,
 		res.resize(all_cnt);
 	for(int i = id1; i < id1 + cnt1; ++i){
 		if(res[i].empty())
-			res[i] = ct::Matf::zeros(rows, 1);
+			res[i] = ct::Matf::zeros(rows, Classes);
 		res[i].fill(0);
 	}
 	for(int i = id2; i < id2 + cnt2; ++i){
@@ -436,7 +568,7 @@ void VOCGpuTrain::init()
 	m_conv[1].init(m_conv[0].szOut(), 64, 1, 256, ct::Size(5, 5), true);
 	m_conv[2].init(m_conv[1].szOut(), 256, 1, 512, ct::Size(3, 3), true);
 	m_conv[3].init(m_conv[2].szOut(), 512, 1, 1024, ct::Size(3, 3), true);
-//	m_conv[4].init(m_conv[3].szOut(), 1024, 1, 1024, ct::Size(3, 3), false);
+	m_conv[4].init(m_conv[3].szOut(), 1024, 1, 1024, ct::Size(3, 3), false);
 
 	int outFeatures = m_conv.back().outputFeatures();
 
@@ -472,8 +604,8 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::Gp
 	etypefunction func = RELU;
 
 	for(size_t i = 0; i < m_mlp.size(); ++i){
-//		if(i == m_mlp.size() - 1)
-//			func = LINEAR;
+		if(i == m_mlp.size() - 1)
+			func = LINEAR;
 		mlp& _mlp = m_mlp[i];
 		_mlp.forward(pX2, func);
 		pX2 = &_mlp.Y();
@@ -498,7 +630,7 @@ void VOCGpuTrain::backward(std::vector<gpumat::GpuMat> &pY)
 	gpumat::GpuMat *pD = &m_D;
 	for(int i = m_mlp.size() - 1; i > -1; i--){
 		gpumat::mlp& mlp = m_mlp[i];
-		mlp.backward(*pD, i == 0 && cnv_do_back_layers > 0);
+		mlp.backward(*pD, i == 0 && cnv_do_back_layers == 0);
 		pD = &mlp.DltA0;
 	}
 	m_optim.pass(m_mlp);
@@ -512,6 +644,143 @@ void VOCGpuTrain::backward(std::vector<gpumat::GpuMat> &pY)
 			gpumat::conv2::convnn_gpu& cnvl = m_conv[i];
 
 		}
+	}
+}
+
+void VOCGpuTrain::predict(std::vector<gpumat::GpuMat> &pY, std::vector<std::vector<Obj> > &res, int boxes)
+{
+	std::vector< ct::Matf > mY;
+	std::for_each(pY.begin(), pY.end(), [&mY](const gpumat::GpuMat& it){
+		mY.resize(mY.size() + 1);
+		gpumat::convert_to_mat(it, mY.back());
+	});
+	predict(mY, res, boxes);
+}
+
+template <typename T>
+std::vector<size_t> sort_indexes(const std::vector<T> &v) {
+
+  // initialize original index locations
+  std::vector<size_t> idx(v.size());
+  std::iota(idx.begin(), idx.end(), 0);
+
+  // sort indexes based on comparing values in v
+  sort(idx.begin(), idx.end(),
+	   [&v](size_t i1, size_t i2) {return v[i1] < v[i2];});
+
+  return idx;
+}
+
+template< typename T >
+void crop_sort_classes(std::vector< T >& values, int crop)
+{
+	std::vector< size_t > idx;
+	for(auto a: sort_indexes(values)){
+		idx.push_back(a);
+	}
+	int k = 0;
+	for(auto a: idx){
+		if(k++ > crop){
+			values[a] = 0;
+		}
+	}
+}
+
+std::string get_name(QMap< std::string, int >& classes, int cls)
+{
+	for(QMap< std::string, int >::iterator it = classes.begin(); it != classes.end(); ++it){
+		if (it.value() == cls){
+			return it.key();
+		}
+	}
+	return "";
+}
+
+void VOCGpuTrain::predict(std::vector<ct::Matf> &pY, std::vector< std::vector<Obj> > &res, int boxes)
+{
+	const int Crop = 5;
+
+	int rows = pY[0].rows;
+
+	struct IObj{
+		int cls;
+		float p;
+	};
+
+	res.resize(rows);
+
+	std::vector< ct::Matf > P;
+	std::vector<  IObj > iobj;
+	P.resize(K * K * boxes);
+	for(int i = 0; i < K * K; ++i){
+		for(int b = 0; b < boxes; ++b){
+			ct::v_mulColumns(pY[first_classes + i], pY[first_confidences + i], P[i * boxes + b], b);
+			ct::v_cropValues<float>(P[i * boxes + b], 0.1);
+		}
+	}
+	for(int i = 0; i < rows; ++i){
+		iobj.clear();
+		iobj.resize(P.size());
+		for(int j = 0; j < Classes; ++j){
+			std::vector<float> line;
+			for(int k = 0; k < P.size(); ++k){
+				float *dP = P[k].ptr(i);
+				float c = dP[k];
+				line.push_back(c);
+			}
+			crop_sort_classes(line, Crop);
+			for(int k = 0; k < P.size(); ++k){
+				float *dP = P[k].ptr(i);
+				dP[k] = line[k];
+			}
+		}
+		for(int j = 0; j < P.size(); ++j){
+			ct::Matf& Pj = P[j];
+			float *dP = Pj.ptr(i);
+
+			IObj o1;
+			o1.cls = 0;
+			o1.p = dP[0];
+			bool f = false;
+			for(int k = 1; k < Classes; ++k){
+				if(o1.p < dP[k]){
+					o1.cls = k;
+					o1.p = dP[k];
+					printf("%d, %f, %s\n", k, o1.p, get_name(m_classes, o1.cls).c_str());
+					f = true;
+
+				}
+			}
+			iobj[j] = o1;
+		}
+
+		for(int k = 0; k < iobj.size(); ++k){
+			IObj& io = iobj[k];
+			if(io.p > 0 && io.cls > 0){
+				int off1 = k / Boxes;
+				int off2 = k - off1 * Boxes;
+				ct::Matf& B = pY[off1 + first_boxes];
+				float *dB = B.ptr(i);
+				Obj obj;
+
+				cv::Rect rec;
+
+				int offy = off1 / K;
+				int offx = off1 - offy * K;
+				float D = W / K;
+
+				rec.x = offx * D + dB[off2 * 4 + 0] * D;
+				rec.y = offy * D + dB[off2 * 4 + 1] * D;
+				rec.width = dB[off2 * 4 + 2] * W;
+				rec.height = dB[off2 * 4 + 3] * W;
+
+				obj.name = get_name(m_classes, io.cls);
+				obj.rects = rec;
+				obj.p = io.p;
+				res[i].push_back(obj);
+			}
+		}
+
 	}
 }
 
@@ -570,15 +839,27 @@ void cnv2gpu(std::vector< ct::Matf >& In, std::vector< gpumat::GpuMat >& Out)
 	}
 }
 
-void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y)
+void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, double lambda = 1., bool test = false)
 {
 	for(int i = first_classes; i < last_classes + 1; ++i){
-		gpumat::subIndOne(t[i], y[i], t[i]);
-	}
-	for(int i = first_boxes; i < last_boxes + 1; ++i){
+		if(test){
+			gpumat::save_gmat(t[i], "test/cls" + std::to_string(i));
+			gpumat::save_gmat(y[i], "test/ycls" + std::to_string(i));
+		}
 		gpumat::sub(t[i], y[i], t[i]);
 	}
+	for(int i = first_boxes; i < last_boxes + 1; ++i){
+		if(test){
+			gpumat::save_gmat(t[i], "test/boxes" + std::to_string(i));
+			gpumat::save_gmat(y[i], "test/ybxs" + std::to_string(i));
+		}
+		gpumat::sub(t[i], y[i], lambda, lambda);
+	}
 	for(int i = first_confidences; i < last_confidences + 1; ++i){
+		if(test){
+			gpumat::save_gmat(t[i], "test/cfd" + std::to_string(i));
+			gpumat::save_gmat(y[i], "test/ycfd" + std::to_string(i));
+		}
 		gpumat::back_delta_sigmoid(t[i], y[i]);
 //		gpumat::sub(t[i], y[i], t[i]);
 	}
@@ -617,7 +898,6 @@ float get_loss(std::vector< gpumat::GpuMat >& t)
 void VOCGpuTrain::doPass()
 {
 	std::vector< ct::Matf > mX, mY;
-	ct::Matf m1, m2, s;
 
 	std::vector< gpumat::GpuMat > X;
 	std::vector< gpumat::GpuMat > y, t;
@@ -629,11 +909,9 @@ void VOCGpuTrain::doPass()
 		cnv2gpu(mX, X);
 		cnv2gpu(mY, y);
 
-		gpumat::convert_to_mat(m_mlp.back().W, m1);
-
 		forward(X, &t);
 
-		get_delta(t, y);
+		get_delta(t, y, 1., (i % 100) == 0);
 
 		backward(t);
 
@@ -649,7 +927,7 @@ void VOCGpuTrain::doPass()
 		printf("pass=%d    \r", i);
 		std::cout << std::flush;
 
-		if((i % m_num_save_pass) == 0/* && i > 0*/){
+		if((i % m_num_save_pass) == 0 && i > 0 || i == 30){
 			int k = 0;
 			float loss = 0;
 			while( k < m_check_count){
@@ -671,6 +949,37 @@ void VOCGpuTrain::doPass()
 			saveModel(m_modelSave);
 		}
 	}
+}
+
+void VOCGpuTrain::test()
+{
+	std::vector< ct::Matf > mX, mY;
+	std::vector< std::vector< Obj > > res;
+
+	std::vector< gpumat::GpuMat > X;
+	std::vector< gpumat::GpuMat > y, t;
+	std::vector< int > cols;
+
+//	cols.resize(m_batch);
+
+	//cv::randu(cols, 0, m_annotations.size() - 1);
+//	cols.push_back(2529);
+//	cols.push_back(1064);
+//	cols.push_back(4569);
+//	cols.push_back(177);
+//	cols.push_back(907);
+//	cols.push_back(2818);
+//	cols.push_back(3521);
+//	cols.push_back(1719);
+//	cols.push_back(2728);
+	cols.push_back(4810);
+	getGroundTruthMat(cols, Boxes, mX, mY, true);
+	cnv2gpu(mX, X);
+	cnv2gpu(mY, y);
+
+	forward(X, &t);
+
+	predict(t, res, Boxes);
 }
 
 size_t VOCGpuTrain::size() const

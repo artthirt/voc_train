@@ -255,7 +255,11 @@ int main(int argc, char *argv[])
 		printf("batch %d\n", batch);
 		printf("seed %d\n", seed);
 
+#if 0
+		voc.test();
+#else
 		voc.doPass();
+#endif
 	}
 
 	return 0;

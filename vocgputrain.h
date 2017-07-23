@@ -14,8 +14,13 @@
 #include "convnn2_gpu.h"
 
 struct Obj{
+	Obj(){
+		p = 0;
+	}
+
 	std::string name;
 	cv::Rect rects;
+	float p;
 };
 
 struct BndBox{
@@ -29,16 +34,16 @@ struct BndBox{
 		xmin = ymin = xmax = ymax = 0;
 	}
 	int x() const{
-		return xmin;
+		return std::min(xmin, xmax);
 	}
 	int y() const{
-		return ymin;
+		return std::min(ymin, ymax);
 	}
 	int w() const{
-		return xmax - xmin;
+		return std::abs(xmax - xmin);
 	}
 	int h() const{
-		return ymax - ymin;
+		return std::abs(ymax - ymin);
 	}
 
 	int xmin;
@@ -80,6 +85,9 @@ public:
 	void forward(std::vector< gpumat::GpuMat >& X, std::vector< gpumat::GpuMat >* pY);
 	void backward(std::vector< gpumat::GpuMat >& pY);
 
+	void predict(std::vector< gpumat::GpuMat >& pY, std::vector< std::vector<Obj> >& res, int boxes);
+	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res, int boxes);
+
 	int passes() const;
 	void setPasses(int passes);
 	int batch() const;
@@ -91,6 +99,8 @@ public:
 	void setSeed(int seed);
 
 	void doPass();
+
+	void test();
 
 private:
 	QString m_vocdir;
