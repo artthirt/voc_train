@@ -115,6 +115,9 @@ private:
 	cv::Mat m_sample;
 	int m_index;
 
+	std::vector< ct::Matf > m_lambdaBxs;
+	std::vector< gpumat::GpuMat > m_glambdaBxs;
+
 	//////////
 
 	int m_passes;
@@ -141,6 +144,7 @@ private:
 	QMap< std::string, int > m_classes;
 
 	bool load_annotation(const QString& fileName, Annotation& annotation);
+	void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, double lambda = 1., bool test = false);
 
 	// QXmlContentHandler interface
 public:

@@ -18,10 +18,10 @@ const int K = 7;
 const int Classes = 30;
 const int Boxes = 2;
 
-const int cnv_size = 5;
+const int cnv_size = 4;
 const int mlp_size = 3;
 
-const int cnv_do_back_layers = 1;
+const int cnv_do_back_layers = 0;
 const int lrs = 4;
 
 const int first_classes = 0;
@@ -86,14 +86,14 @@ bool VOCGpuTrain::setVocFolder(const QString sdir)
 	QMap< std::string, int> map;
 
 	m_annotations.clear();
-	for(int i = 0; i < dir.count(); ++i){
+	for(size_t i = 0; i < dir.count(); ++i){
 		QString path = dir.path() + "/" + dir[i];
 		Annotation an;
 		printf("FILE: %s", path.toLatin1().data());
 		if(load_annotation(path, an)){
 			m_annotations.push_back(an);
 
-			for(int i = 0; i < an.objs.size(); ++i){
+			for(size_t i = 0; i < an.objs.size(); ++i){
 				int k = map[an.objs[i].name];
 				map[an.objs[i].name] = k + 1;
 			}
@@ -210,7 +210,7 @@ bool VOCGpuTrain::show(int index, bool flip, const std::string name)
 
 	int D = W / K;
 
-	for(int i = 0; i < it.objs.size(); ++i){
+	for(size_t i = 0; i < it.objs.size(); ++i){
 		cv::Rect rec = it.objs[i].rects;
 		if(flip){
 			rec.x = out.cols - rec.x - rec.width;
@@ -272,7 +272,8 @@ bool VOCGpuTrain::show(int index, bool flip, const std::string name)
 	return true;
 }
 
-void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, int bxid, const cv::Rect2f& Bx, int row = 0)
+void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, const cv::Rect2f& Bx,
+		  std::vector< int >& bxss, int row = 0)
 {
 	if(classes.empty())
 		return;
@@ -287,8 +288,8 @@ void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, int bxid, co
 	int bx = (cx * K)/W;
 	int by = (cy * K)/W;
 
-	if(bxid >= Boxes)
-		throw new std::string("oops. some error!!!");
+//	if(bxid >= Boxes)
+//		throw new std::string("oops. some error!!!");
 
 	std::vector<float> P[K][K];
 
@@ -315,6 +316,10 @@ void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, int bxid, co
 
 			int off = y * K + x;
 
+			int bxid = bxss[off];
+			if(bxid >= 1)
+				continue;
+
 			float p = (float)rt.width * rt.height / (D * D);
 			if(x == bx && y == by){
 				p = 1;
@@ -335,6 +340,8 @@ void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, int bxid, co
 
 			float *dCf = classes[first_confidences + off].ptr(row);
 			dCf[bxid] = p;
+
+			bxss[off] = bxid + 1;
 //			cv::rectangle(im, rt,
 //						  cv::Scalar(0, 200, 0), 2);
 //			//cv::Rect roi(x * D, y * D, D, D);
@@ -367,6 +374,12 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 	int id3 = id2 + cnt2;
 	int cnt3 = cnt_cnfd;
 
+	m_lambdaBxs.resize(K * K);
+	for(size_t i = 0; i < m_lambdaBxs.size(); ++i){
+		m_lambdaBxs[i].setSize(rows, 1);
+		m_lambdaBxs[i].ptr(row)[0] = 0.5;
+	}
+
 	if(res.size() != all_cnt)
 		res.resize(all_cnt);
 	for(int i = id1; i < id1 + cnt1; ++i){
@@ -398,7 +411,7 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 
 	std::vector< int > bxs;
 	bxs.resize(K * K);
-	for(int i = 0; i < it.objs.size(); ++i){
+	for(size_t i = 0; i < it.objs.size(); ++i){
 		cv::Rect rec = it.objs[i].rects;
 		std::string name = it.objs[i].name;
 		int cls = m_classes[name];
@@ -422,10 +435,11 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 
 
 		int off = by * K + bx;
-		int bi = bxs[off];
-		if(bi >= boxes){
-			continue;
-		}
+		m_lambdaBxs[off].ptr(row)[0] = 5.;
+//		int bi = bxs[off];
+//		if(bi >= boxes){
+//			continue;
+//		}
 
 		cv::Rect2f Bx;
 		Bx.x = (cx * W - bx * D) / D;
@@ -433,9 +447,9 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 		Bx.width = sqrtf(std::abs(dw));
 		Bx.height = sqrtf(std::abs(dh));
 
-		getP(rec, res, cls, bi, Bx, row);
+		getP(rec, res, cls, Bx, bxs, row);
 
-		bxs[off] = bi + 1;
+//		bxs[off] = bi + 1;
 	}
 
 	for(int i = first_classes; i < last_classes + 1; ++i){
@@ -447,9 +461,9 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 				cnt++;
 		}
 		if(cnt){
-			for(int j = 0; j < Classes; ++j){
-				dC[j] /= cnt;
-			}
+//			for(int j = 0; j < Classes; ++j){
+//				dC[j] /= cnt;
+//			}
 		}else{
 			dC[0] = 1;
 //			float *dB = res[first_boxes + i].ptr(row);
@@ -508,8 +522,9 @@ void VOCGpuTrain::getGroundTruthMat(std::vector<int> indices, int boxes,
 	if(images.size() != rows)
 		images.resize(rows);
 
+	m_lambdaBxs.resize(K * K);
 
-	for(int i = 0; i < indices.size(); ++i){
+	for(size_t i = 0; i < indices.size(); ++i){
 		getGroundTruthMat(indices[i], boxes, images, res, i, rows, flips[i]);
 
 //		if(!res.size()){
@@ -568,7 +583,7 @@ void VOCGpuTrain::init()
 	m_conv[1].init(m_conv[0].szOut(), 64, 1, 256, ct::Size(5, 5), true);
 	m_conv[2].init(m_conv[1].szOut(), 256, 1, 512, ct::Size(3, 3), true);
 	m_conv[3].init(m_conv[2].szOut(), 512, 1, 1024, ct::Size(3, 3), true);
-	m_conv[4].init(m_conv[3].szOut(), 1024, 1, 1024, ct::Size(3, 3), false);
+//	m_conv[4].init(m_conv[3].szOut(), 1024, 1, 1024, ct::Size(3, 3), false);
 
 	int outFeatures = m_conv.back().outputFeatures();
 
@@ -723,18 +738,18 @@ void VOCGpuTrain::predict(std::vector<ct::Matf> &pY, std::vector< std::vector<Ob
 		iobj.resize(P.size());
 		for(int j = 0; j < Classes; ++j){
 			std::vector<float> line;
-			for(int k = 0; k < P.size(); ++k){
+			for(size_t k = 0; k < P.size(); ++k){
 				float *dP = P[k].ptr(i);
 				float c = dP[k];
 				line.push_back(c);
 			}
 			crop_sort_classes(line, Crop);
-			for(int k = 0; k < P.size(); ++k){
+			for(size_t k = 0; k < P.size(); ++k){
 				float *dP = P[k].ptr(i);
 				dP[k] = line[k];
 			}
 		}
-		for(int j = 0; j < P.size(); ++j){
+		for(size_t j = 0; j < P.size(); ++j){
 			ct::Matf& Pj = P[j];
 			float *dP = Pj.ptr(i);
 
@@ -839,28 +854,28 @@ void cnv2gpu(std::vector< ct::Matf >& In, std::vector< gpumat::GpuMat >& Out)
 	}
 }
 
-void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, double lambda = 1., bool test = false)
+void VOCGpuTrain::get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, double lambda, bool test)
 {
-	for(int i = first_classes; i < last_classes + 1; ++i){
+	for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
 		if(test){
 			gpumat::save_gmat(t[i], "test/cls" + std::to_string(i));
 			gpumat::save_gmat(y[i], "test/ycls" + std::to_string(i));
 		}
-		gpumat::sub(t[i], y[i], t[i]);
+		gpumat::subWithColumn(t[i], y[i], m_glambdaBxs[k]);
 	}
-	for(int i = first_boxes; i < last_boxes + 1; ++i){
+	for(int i = first_boxes, k = 0; i < last_boxes + 1; ++i, ++k){
 		if(test){
 			gpumat::save_gmat(t[i], "test/boxes" + std::to_string(i));
 			gpumat::save_gmat(y[i], "test/ybxs" + std::to_string(i));
 		}
-		gpumat::sub(t[i], y[i], lambda, lambda);
+		gpumat::subWithColumn(t[i], y[i], m_glambdaBxs[k]);
 	}
-	for(int i = first_confidences; i < last_confidences + 1; ++i){
+	for(int i = first_confidences, k = 0; i < last_confidences + 1; ++i, ++k){
 		if(test){
 			gpumat::save_gmat(t[i], "test/cfd" + std::to_string(i));
 			gpumat::save_gmat(y[i], "test/ycfd" + std::to_string(i));
 		}
-		gpumat::back_delta_sigmoid(t[i], y[i]);
+		gpumat::back_delta_sigmoid(t[i], y[i], m_glambdaBxs[k]);
 //		gpumat::sub(t[i], y[i], t[i]);
 	}
 }
@@ -908,6 +923,7 @@ void VOCGpuTrain::doPass()
 		getGroundTruthMat(cols, Boxes, mX, mY, true);
 		cnv2gpu(mX, X);
 		cnv2gpu(mY, y);
+		cnv2gpu(m_lambdaBxs, m_glambdaBxs);
 
 		forward(X, &t);
 
