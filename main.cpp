@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
 			std::cout << r[i].print() << std::endl;
 		}
 
-		const int CNT = 1000;
+		const int CNT = 500;
 
 		while(1){
 			if(!voc.show(id, false))
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 				break;
 
 			if(cnt++ > CNT){
-				//id += 1;
+				id += 1;
 				cnt = 0;
 				if(id >= voc.size()){
 					id = 0;

@@ -241,26 +241,28 @@ bool VOCGpuTrain::show(int index, bool flip, const std::string name)
 		cv::putText(out2, str.toStdString(), rec.tl(), 1, 1, cv::Scalar(0));
 	}
 
-	for(size_t i = 0; i < it.objs.size(); ++i){
-		cv::Rect rec = it.objs[i].rect;
-		if(flip){
-			rec.x = out.cols - rec.x - rec.width;
-		}
-		float dw = (float)rec.width / it.size.width;
-		float dh = (float)rec.height / it.size.height;
-		float cx = (float)rec.x / it.size.width + dw/2;
-		float cy = (float)rec.y / it.size.height + dh/2;
+//	for(size_t i = 0; i < it.objs.size(); ++i){
+//		cv::Rect rec = it.objs[i].rect;
+//		if(flip){
+//			rec.x = out.cols - rec.x - rec.width;
+//		}
+//		float dw = (float)rec.width / it.size.width;
+//		float dh = (float)rec.height / it.size.height;
+//		float cx = (float)rec.x / it.size.width + dw/2;
+//		float cy = (float)rec.y / it.size.height + dh/2;
 
-		cv::circle(out2, cv::Point(cx * W, cy * W), 4, cv::Scalar(255, 100, 0), 2);
-		cv::rectangle(out2, cv::Rect((cx - dw/2) * W, (cy - dh/2) * W, dw * W, dh * W), cv::Scalar(0, 0, 255), 2);
-	}
+//		cv::circle(out2, cv::Point(cx * W, cy * W), 4, cv::Scalar(255, 100, 0), 2);
+//		cv::rectangle(out2, cv::Rect((cx - dw/2) * W, (cy - dh/2) * W, dw * W, dh * W), cv::Scalar(0, 0, 255), 2);
+//	}
 
 	if(!res.empty()){
 		for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
 			ct::Matf& m = res[i];
 			ct::Matf& cf = res[first_confidences + k];
+			ct::Matf& bx = res[first_boxes + k];
 			float *dCls = m.ptr();
 			float *dCfd = cf.ptr();
+			float *dBx = bx.ptr();
 			int y = k / K;
 			int x = k - y * K;
 
@@ -280,6 +282,20 @@ bool VOCGpuTrain::show(int index, bool flip, const std::string name)
 				if(c > 0.1){
 					cv::circle(out2, pt + cv::Point(-D/2 + 10 + xo, -D/2 + 10), 3, cv::Scalar(100, 255, 0), 2);
 					xo += 8;
+
+					float dx = dBx[j * 4 + 0];
+					float dy = dBx[j * 4 + 1];
+					float dw = dBx[j * 4 + 2];
+					float dh = dBx[j * 4 + 3];
+
+					float xb = dx * D + x * D;
+					float yb = dy * D + y * D;
+					float wb = (dw * dw) * W;
+					float hb = (dh * dh) * W;
+
+					cv::Point tl(xb - wb/2, yb - hb/2);
+					cv::circle(out2, cv::Point(xb, yb), 4, cv::Scalar(255, 100, 0), 2);
+					cv::rectangle(out2, cv::Rect(tl.x, tl.y, wb, hb), cv::Scalar(0, 0, 255), 2);
 				}
 			}
 		}
