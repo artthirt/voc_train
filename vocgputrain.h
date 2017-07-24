@@ -19,7 +19,8 @@ struct Obj{
 	}
 
 	std::string name;
-	cv::Rect rects;
+	cv::Rect rect;
+	cv::Rect2f rectf;
 	float p;
 };
 
@@ -65,7 +66,7 @@ public:
 	VOCGpuTrain();
 	bool setVocFolder(const QString sdir);
 
-	bool show(int index, bool flip = false, const std::__cxx11::string name = "out");
+	bool show(int index, bool flip = false, const std::string name = "out");
 
 	size_t size() const;
 
@@ -74,7 +75,7 @@ public:
 	void setModelSaveName(const QString& name);
 
 	Annotation &getGroundTruthMat(int index, int boxes, std::vector<ct::Matf> &images,
-						   std::vector< ct::Matf >& res, int row = 0, int rows = 1, bool flip = false);
+						   std::vector< ct::Matf >& res, int row = 0, int rows = 1, bool flip = false, bool load_image = true);
 	void getGroundTruthMat(std::vector<int> indices, int boxes,
 						   std::vector<ct::Matf> &images, std::vector< ct::Matf >& res, bool flip = false);
 

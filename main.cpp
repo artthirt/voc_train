@@ -183,8 +183,8 @@ int main(int argc, char *argv[])
 		printf("<<<< filename %s >>>>\n", an.filename.c_str());
 		for(size_t i = 0; i < an.objs.size(); ++i){
 			Obj &obj = an.objs[i];
-			printf("obj %s\t x=%d, y=%d, w=%d, h=%d\n", obj.name.c_str(), obj.rects.x, obj.rects.y,
-				   obj.rects.width, obj.rects.height);
+			printf("obj %s\t x=%d, y=%d, w=%d, h=%d\n", obj.name.c_str(), obj.rect.x, obj.rect.y,
+				   obj.rect.width, obj.rect.height);
 		}
 		for(size_t i = 0; i < r.size(); ++i){
 			std::cout << "-->" << i << std::endl;
@@ -219,14 +219,14 @@ int main(int argc, char *argv[])
 				break;
 
 			if(cnt++ > CNT){
-				id += 1;
+				//id += 1;
 				cnt = 0;
 				if(id >= voc.size()){
 					id = 0;
 				}
 			}
 
-			int ch = cv::waitKey(20);
+			int ch = cv::waitKey(40);
 			if(ch == 13)
 				break;
 		}
