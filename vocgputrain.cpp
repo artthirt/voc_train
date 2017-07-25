@@ -480,27 +480,37 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 		int idx[2] = {0, 0}, cnt_idx = 0;
 		if(C == 1){
 			Obj ob = objs[i][0];
-			float ar = ob.rectf.width / ob.rectf.height;
+			float dw = sqrtf(std::abs(ob.rectf.width));
+			float dh = sqrtf(std::abs(ob.rectf.height));
+			float ar = dw / dh;
+			float sr = dw * dh;
 			int id = 1;
-			if(ar > 1)id = 0;		/// if aspect ratio > 1 then use first column else second
+			if(ar > 1 || sr > 0.5)
+				id = 0;		/// if aspect ratio > 1 then use first column else second
 
 			idx[cnt_idx++] = (id);
 		}
 		if(C == 2){
 			Obj ob1 = objs[i][0];
 			Obj ob2 = objs[i][1];
-			float ar1 = ob1.rectf.width / ob1.rectf.height;
-			float sr1 = ob1.rectf.width * ob1.rectf.height;
-			float ar2 = ob2.rectf.width / ob2.rectf.height;
-			float sr2 = ob2.rectf.width * ob2.rectf.height;
+			float dw1 = sqrtf(std::abs(ob1.rectf.width));
+			float dh1 = sqrtf(std::abs(ob1.rectf.height));
+			float dw2 = sqrtf(std::abs(ob2.rectf.width));
+			float dh2 = sqrtf(std::abs(ob2.rectf.height));
+			float ar1 = dw1 / dh1;
+			float sr1 = dw1 * dh1;
+			float ar2 = dw2 / dh2;
+			float sr2 = dw2 * dh2;
 
 			if(ar1 > 1 && ar2 > 1){
-				if(sr1 > sr2){
-					idx[cnt_idx++] = 0;
-					idx[cnt_idx++] = 1;
+				if(sr1 > 0.5 && sr2 < 0.5){
+					idx[cnt_idx++] = (0); idx[cnt_idx++] = (1);
+				}else if(sr2 > 0.5 && sr1 < 0.5){
+					idx[cnt_idx++] = (1); idx[cnt_idx++] = (0);
+				}else if(sr1 > sr2){
+					idx[cnt_idx++] = (0); idx[cnt_idx++] = (1);
 				}else{
-					idx[cnt_idx++] = (1);
-					idx[cnt_idx++] = (0);
+					idx[cnt_idx++] = (1); idx[cnt_idx++] = (0);
 				}
 			}else{
 				if(ar1 > 1 && ar2 <= 1){
