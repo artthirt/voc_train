@@ -543,13 +543,12 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 	for(int i = first_classes; i < last_classes + 1; ++i){
 		ct::Matf& m = res[first_classes + i];
 		float* dC = m.ptr(row);
-		int cnt = 0;
+		float p = 0;
 		for(int j = 0; j < Classes; ++j){
-			if(dC[j] > 0)
-				cnt++;
+			p += dC[j];
 		}
-		if(cnt){
-
+		if(p > 0.1){
+			for(int j = 0; j < Classes; ++j) dC[j] /= p;
 		}else{
 			dC[0] = 1;
 		}
