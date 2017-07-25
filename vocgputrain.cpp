@@ -409,6 +409,10 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 		m_lambdaBxs[i].ptr(row)[0] = 0.5;
 	}
 
+	std::uniform_int_distribution< int > ur(0, 1);
+	std::uniform_real_distribution< float > urf(0, 1);
+	std::mt19937 gn;
+
 	if(res.size() != last_confidences + 1)
 		res.resize(last_confidences + 1);
 	for(int i = first_classes; i < last_classes + 1; ++i){
@@ -475,82 +479,65 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 //	std::cout << std::endl;
 
 	for(int i = 0; i < K * K; ++i){
-		size_t C = std::min((size_t)Boxes, objs[i].size());
+		size_t C = objs[i].size();
 
-		int idx[2] = {0, 0}, cnt_idx = 0;
-		if(C == 1){
-			Obj ob = objs[i][0];
-//			float dw = sqrtf(std::abs(ob.rectf.width));
-//			float dh = sqrtf(std::abs(ob.rectf.height));
-//			float ar = dw / dh;
-//			float sr = dw * dh;
-//			int id = 1;
-//			if(ar > 1 || sr > 0.5)
-//				id = 0;		/// if aspect ratio > 1 then use first column else second
-
-			idx[cnt_idx++] = (0);
+		//int num_box = ur(gn);
+		int num_obj = 0;
+		if(C > 1){
+			num_obj = (C - 1) * urf(gn);
 		}
-		if(C == 2){
-			Obj ob1 = objs[i][0];
-			Obj ob2 = objs[i][1];
 
-			int bx1 = ob1.rectf.x * K;
-			int by1 = ob1.rectf.y * K;
-			int bx2 = ob2.rectf.x * K;
-			int by2 = ob2.rectf.y * K;
+		if(C > 0){
+			int off = i;
 
-			float dx1 = (ob1.rectf.x * W - bx1 * D) / D;
-			float dy1 = (ob1.rectf.y * W - by1 * D) / D;
-			float dx2 = (ob2.rectf.x * W - bx2 * D) / D;
-			float dy2 = (ob2.rectf.y * W - by2 * D) / D;
-//			float dw1 = sqrtf(std::abs(ob1.rectf.width));
-//			float dh1 = sqrtf(std::abs(ob1.rectf.height));
-//			float dw2 = sqrtf(std::abs(ob2.rectf.width));
-//			float dh2 = sqrtf(std::abs(ob2.rectf.height));
-//			float ar1 = dw1 / dh1;
-//			float sr1 = dw1 * dh1;
-//			float ar2 = dw2 / dh2;
-//			float sr2 = dw2 * dh2;
+			//int bxid = num_box;
 
-			if(dx1 > dx2 || dy1 > dy2){
-				idx[cnt_idx++] = (0);
-				idx[cnt_idx++] = (1);
-			}else{
-				idx[cnt_idx++] = (1);
-				idx[cnt_idx++] = (0);
+//			int idk = 0;
+//			float area = 0;
+			std::sort(objs[i].begin(), objs[i].end(), [](const Obj& ob1, const Obj& ob2){
+				float dw1 = sqrtf(std::abs(ob1.rectf.width));
+				float dh1 = sqrtf(std::abs(ob1.rectf.height));
+				float dw2 = sqrtf(std::abs(ob2.rectf.width));
+				float dh2 = sqrtf(std::abs(ob2.rectf.height));
+				return dw1 * dh1 > dw2 * dh2;
+			});
+//			for(int k = 0; k < C; ++k){
+//				Obj &ob = objs[i][k];
+//				float dw = sqrtf(std::abs(ob.rectf.width));
+//				float dh = sqrtf(std::abs(ob.rectf.height));
+//				if(dw * dh > area){
+//					area = dw * dh;
+//					idk = k;
+//				}
+//			}
+
+			for(int bxid = 0; bxid < std::min(Boxes, (int)objs[i].size()); ++bxid){
+				Obj &ob = objs[i][bxid];
+				std::string name = ob.name;
+				int cls = m_classes[name];
+
+				int bx = ob.rectf.x * K;
+				int by = ob.rectf.y * K;
+
+				cv::Rect2f Bx;
+				Bx.x = (ob.rectf.x * W - bx * D) / D;
+				Bx.y = (ob.rectf.y * W - by * D) / D;
+				Bx.width = sqrtf(std::abs(ob.rectf.width));
+				Bx.height = sqrtf(std::abs(ob.rectf.height));
+
+				float *dB = res[first_boxes + off].ptr(row);
+				dB[bxid * 4 + 0] = Bx.x;
+				dB[bxid * 4 + 1] = Bx.y;
+				dB[bxid * 4 + 2] = Bx.width;
+				dB[bxid * 4 + 3] = Bx.height;
+
+				float *dC = res[first_classes + off].ptr(row);
+				dC[cls] = 1;
+
+				float *dCf = res[first_confidences + off].ptr(row);
+				dCf[bxid] = 1;
 			}
 		}
-
-		int off = i;
-
-		for(size_t j = 0; j < cnt_idx; ++j){
-			int bxid = idx[j];
-			Obj &ob = objs[i][j];
-			std::string name = ob.name;
-			int cls = m_classes[name];
-
-			int bx = ob.rectf.x * K;
-			int by = ob.rectf.y * K;
-
-			cv::Rect2f Bx;
-			Bx.x = (ob.rectf.x * W - bx * D) / D;
-			Bx.y = (ob.rectf.y * W - by * D) / D;
-			Bx.width = sqrtf(std::abs(ob.rectf.width));
-			Bx.height = sqrtf(std::abs(ob.rectf.height));
-
-			float *dB = res[first_boxes + off].ptr(row);
-			dB[bxid * 4 + 0] = Bx.x;
-			dB[bxid * 4 + 1] = Bx.y;
-			dB[bxid * 4 + 2] = Bx.width;
-			dB[bxid * 4 + 3] = Bx.height;
-
-			float *dC = res[first_classes + off].ptr(row);
-			dC[cls] = 1;
-
-			float *dCf = res[first_confidences + off].ptr(row);
-			dCf[bxid] = 1;
-		}
-
 	}
 
 	for(int i = first_classes; i < last_classes + 1; ++i){
@@ -941,21 +928,21 @@ void VOCGpuTrain::get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpuma
 	for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
 		if(test){
 			gpumat::save_gmat(t[i], "test/cls" + std::to_string(i));
-			gpumat::save_gmat(y[i], "test/ycls" + std::to_string(i));
+			gpumat::save_gmat(y[i], "test/ycls" + std::to_string(k));
 		}
 		gpumat::subWithColumn(t[i], y[i], m_glambdaBxs[k]);
 	}
 	for(int i = first_boxes, k = 0; i < last_boxes + 1; ++i, ++k){
 		if(test){
 			gpumat::save_gmat(t[i], "test/boxes" + std::to_string(i));
-			gpumat::save_gmat(y[i], "test/ybxs" + std::to_string(i));
+			gpumat::save_gmat(y[i], "test/ybxs" + std::to_string(k));
 		}
 		gpumat::subWithColumn(t[i], y[i], m_glambdaBxs[k]);
 	}
 	for(int i = first_confidences, k = 0; i < last_confidences + 1; ++i, ++k){
 		if(test){
 			gpumat::save_gmat(t[i], "test/cfd" + std::to_string(i));
-			gpumat::save_gmat(y[i], "test/ycfd" + std::to_string(i));
+			gpumat::save_gmat(y[i], "test/ycfd" + std::to_string(k));
 		}
 		gpumat::back_delta_sigmoid(t[i], y[i], m_glambdaBxs[k]);
 //		gpumat::sub(t[i], y[i], t[i]);
