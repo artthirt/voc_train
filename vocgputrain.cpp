@@ -927,21 +927,21 @@ void VOCGpuTrain::get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpuma
 {
 	for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
 		if(test){
-			gpumat::save_gmat(t[i], "test/cls" + std::to_string(i));
+			gpumat::save_gmat(t[i], "test/cls" + std::to_string(k));
 			gpumat::save_gmat(y[i], "test/ycls" + std::to_string(k));
 		}
 		gpumat::subWithColumn(t[i], y[i], m_glambdaBxs[k]);
 	}
 	for(int i = first_boxes, k = 0; i < last_boxes + 1; ++i, ++k){
 		if(test){
-			gpumat::save_gmat(t[i], "test/boxes" + std::to_string(i));
+			gpumat::save_gmat(t[i], "test/boxes" + std::to_string(k));
 			gpumat::save_gmat(y[i], "test/ybxs" + std::to_string(k));
 		}
 		gpumat::subWithColumn(t[i], y[i], m_glambdaBxs[k]);
 	}
 	for(int i = first_confidences, k = 0; i < last_confidences + 1; ++i, ++k){
 		if(test){
-			gpumat::save_gmat(t[i], "test/cfd" + std::to_string(i));
+			gpumat::save_gmat(t[i], "test/cfd" + std::to_string(k));
 			gpumat::save_gmat(y[i], "test/ycfd" + std::to_string(k));
 		}
 		gpumat::back_delta_sigmoid(t[i], y[i], m_glambdaBxs[k]);
