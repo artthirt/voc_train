@@ -146,6 +146,7 @@ private:
 
 	bool load_annotation(const QString& fileName, Annotation& annotation);
 	void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, double lambda = 1., bool test = false);
+	void update_output(std::vector< ct::Matf >& res, Obj& ob, int off, int bxid, int row);
 
 	// QXmlContentHandler interface
 public:

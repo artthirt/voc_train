@@ -393,6 +393,34 @@ void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, const cv::Re
 	}
 }
 
+void VOCGpuTrain::update_output(std::vector< ct::Matf >& res, Obj& ob, int off, int bxid, int row)
+{
+	const float D = W / K;
+	std::string name = ob.name;
+	int cls = m_classes[name];
+
+	int bx = ob.rectf.x * K;
+	int by = ob.rectf.y * K;
+
+	cv::Rect2f Bx;
+	Bx.x = (ob.rectf.x * W - bx * D) / D;
+	Bx.y = (ob.rectf.y * W - by * D) / D;
+	Bx.width = sqrtf(std::abs(ob.rectf.width));
+	Bx.height = sqrtf(std::abs(ob.rectf.height));
+
+	float *dB = res[first_boxes + off].ptr(row);
+	dB[bxid * 4 + 0] = Bx.x;
+	dB[bxid * 4 + 1] = Bx.y;
+	dB[bxid * 4 + 2] = Bx.width;
+	dB[bxid * 4 + 3] = Bx.height;
+
+	float *dC = res[first_classes + off].ptr(row);
+	dC[cls] = 1;
+
+	float *dCf = res[first_confidences + off].ptr(row);
+	dCf[bxid] = 1;
+}
+
 Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct::Matf >& images,
 									std::vector<ct::Matf> &res, int row, int rows, bool flip, bool load_image)
 {
@@ -492,15 +520,27 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 
 			//int bxid = num_box;
 
+			int bxid1 = -1, bxid2 = -1, id = 0;
+			std::for_each(objs[i].begin(), objs[i].end(), [&](const Obj& ob){
+				float dw = sqrtf(std::abs(ob.rectf.width));
+				float dh = sqrtf(std::abs(ob.rectf.height));
+				float ar = dw / dh;
+				if(ar > 1){
+					bxid1 = id;
+				}else{
+					bxid2 = id;
+				}
+				id++;
+			});
 //			int idk = 0;
 //			float area = 0;
-			std::sort(objs[i].begin(), objs[i].end(), [](const Obj& ob1, const Obj& ob2){
-				float dw1 = sqrtf(std::abs(ob1.rectf.width));
-				float dh1 = sqrtf(std::abs(ob1.rectf.height));
-				float dw2 = sqrtf(std::abs(ob2.rectf.width));
-				float dh2 = sqrtf(std::abs(ob2.rectf.height));
-				return dw1 * dh1 > dw2 * dh2;
-			});
+//			std::sort(objs[i].begin(), objs[i].end(), [](const Obj& ob1, const Obj& ob2){
+//				float dw1 = sqrtf(std::abs(ob1.rectf.width));
+//				float dh1 = sqrtf(std::abs(ob1.rectf.height));
+//				float dw2 = sqrtf(std::abs(ob2.rectf.width));
+//				float dh2 = sqrtf(std::abs(ob2.rectf.height));
+//				return dw1 * dh1 > dw2 * dh2;
+//			});
 //			for(int k = 0; k < C; ++k){
 //				Obj &ob = objs[i][k];
 //				float dw = sqrtf(std::abs(ob.rectf.width));
@@ -511,31 +551,11 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 //				}
 //			}
 
-			for(int bxid = 0; bxid < std::min(Boxes, (int)objs[i].size()); ++bxid){
-				Obj &ob = objs[i][bxid];
-				std::string name = ob.name;
-				int cls = m_classes[name];
-
-				int bx = ob.rectf.x * K;
-				int by = ob.rectf.y * K;
-
-				cv::Rect2f Bx;
-				Bx.x = (ob.rectf.x * W - bx * D) / D;
-				Bx.y = (ob.rectf.y * W - by * D) / D;
-				Bx.width = sqrtf(std::abs(ob.rectf.width));
-				Bx.height = sqrtf(std::abs(ob.rectf.height));
-
-				float *dB = res[first_boxes + off].ptr(row);
-				dB[bxid * 4 + 0] = Bx.x;
-				dB[bxid * 4 + 1] = Bx.y;
-				dB[bxid * 4 + 2] = Bx.width;
-				dB[bxid * 4 + 3] = Bx.height;
-
-				float *dC = res[first_classes + off].ptr(row);
-				dC[cls] = 1;
-
-				float *dCf = res[first_confidences + off].ptr(row);
-				dCf[bxid] = 1;
+			if(bxid1 >= 0){
+				update_output(res, objs[off][bxid1], off, 0, row);
+			}
+			if(bxid2 >= 0){
+				update_output(res, objs[off][bxid2], off, 1, row);
 			}
 		}
 	}
