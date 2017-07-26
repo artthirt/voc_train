@@ -475,7 +475,7 @@ Annotation& VOCGpuTrain::getGroundTruthMat(int index, int boxes, std::vector< ct
 
 		Obj ob = it.objs[i];
 		ob.rect = cv::Rect((cx - dw/2) * W, (cy - dh/2) * W, dw * W, dh * W);
-		ob.rectf = cv::Rect2f(cx, cy, std::sqrtf(std::abs(dw)), std::sqrtf(std::abs(dh)));
+		ob.rectf = cv::Rect2f(cx, cy, sqrtf(std::abs(dw)), sqrtf(std::abs(dh)));
 
 		objs[off].push_back(ob);
 
