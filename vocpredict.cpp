@@ -80,10 +80,10 @@ void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<ct::Matf> *pY)
 	hsplit(*pX2, m_cols, *pY);
 
 	for(int i = first_classes; i < last_classes + 1; ++i){
-		softmax((*pY)[i], 1);
+		(*pY)[i] = softmax((*pY)[i], 1);
 	}
 	for(int i = first_confidences; i < last_confidences + 1; ++i){
-		sigmoid((*pY)[i]);
+		v_sigmoid((*pY)[i]);
 	}
 }
 
