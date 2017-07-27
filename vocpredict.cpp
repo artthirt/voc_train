@@ -134,7 +134,7 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 			o1.p = dP[0];
 			bool f = false;
 			for(int k = 1; k < Classes; ++k){
-				if(o1.p < dP[k]){
+				if(o1.p < dP[k] && dP[k] > 0.1){
 					o1.cls = k;
 					o1.p = dP[k];
 					printf("%d, %f, %s\n", k, o1.p, get_name(m_reader->classes, o1.cls).c_str());
