@@ -114,8 +114,8 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 		iobj.resize(P.size());
 		for(int j = 0; j < Classes; ++j){
 			std::vector<float> line;
-			for(size_t k = 0; k < P.size(); ++k){
-				float *dP = P[k].ptr(i);
+			for(size_t k = first_classes; k < last_classes + 1; ++k){
+				float *dP = pY[k].ptr(i);
 				float c = dP[j];
 				line.push_back(c);
 			}
