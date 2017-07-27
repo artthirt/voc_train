@@ -20,7 +20,7 @@ public:
 	void setReader(AnnotationReader* reader);
 
 	void forward(std::vector< ct::Matf >& X, std::vector< ct::Matf >* pY);
-	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res, int boxes);
+	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res);
 	void predicts(std::vector< int > & list);
 
 	bool loadModel(const QString& model);

@@ -87,7 +87,7 @@ void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<ct::Matf> *pY)
 	}
 }
 
-void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj> > &res, int boxes)
+void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj> > &res)
 {
 	const int Crop = 5;
 
@@ -101,17 +101,16 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 	res.resize(rows);
 
 	std::vector< ct::Matf > P;
-	std::vector<  IObj > iobj;
-	P.resize(K * K * boxes);
+	//std::vector<  IObj > iobj;
+	P.resize(K * K * Boxes);
 	for(int i = 0; i < K * K; ++i){
-		for(int b = 0; b < boxes; ++b){
-			ct::v_mulColumns(pY[first_classes + i], pY[first_confidences + i], P[i * boxes + b], b);
-			ct::v_cropValues<float>(P[i * boxes + b], 0.1);
+		for(int b = 0; b < Boxes; ++b){
+			ct::v_mulColumns(pY[first_classes + i], pY[first_confidences + i], P[i * Boxes + b], b);
+			ct::v_cropValues<float>(P[i * Boxes + b], 0.1);
 		}
 	}
 	for(int i = 0; i < rows; ++i){
-		iobj.clear();
-		iobj.resize(P.size());
+		IObj iobj[K * K * Boxes];
 		for(int j = 0; j < Classes; ++j){
 			std::vector<float> line;
 			for(size_t k = first_classes; k < last_classes + 1; ++k){
@@ -142,10 +141,11 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 
 				}
 			}
-			iobj[j] = o1;
+			if(f)
+				iobj[j] = o1;
 		}
 
-		for(int k = 0; k < iobj.size(); ++k){
+		for(int k = 0; k < P.size(); ++k){
 			IObj& io = iobj[k];
 			if(io.p > 0 && io.cls > 0){
 				int off1 = k / Boxes;
@@ -215,7 +215,7 @@ void VocPredict::predicts(std::vector<int> &list)
 		ct::save_mat(y[i], "test/ycfd" + std::to_string(k));
 	}
 
-	predict(t, res, Boxes);
+	predict(t, res);
 
 	for(size_t i = 0; i < res.size(); ++i){
 		for(size_t j = 0; j < res[i].size(); ++j){
