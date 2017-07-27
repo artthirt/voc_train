@@ -101,7 +101,7 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::Gp
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
 		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
-		cnv.setDropout(dropout);
+		//cnv.setDropout(dropout);
 		cnv.forward(pX, RELU);
 		pX = &cnv.XOut();
 	}
