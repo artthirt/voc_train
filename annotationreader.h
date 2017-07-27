@@ -78,6 +78,8 @@ public:
 
 	void getImage(const std::string& filename, ct::Matf& res, bool flip = false);
 
+	void getMat(const ct::Matf& in, cv::Mat& out, const cv::Size sz);
+
 	bool show(int index, bool flip = false, const std::string name = "out");
 
 private:

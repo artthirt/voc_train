@@ -12,6 +12,20 @@
 
 #include "metaconfig.h"
 
+#include "vocpredict.h"
+
+/////////////////////
+
+void cnv2gpu(std::vector< ct::Matf >& In, std::vector< gpumat::GpuMat >& Out)
+{
+	Out.resize(In.size());
+	for(size_t i = 0; i < In.size(); ++i){
+		gpumat::convert_to_gpu(In[i], Out[i]);
+	}
+}
+
+//////////////////////
+
 VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 {
 	m_reader = reader;
@@ -77,12 +91,12 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::Gp
 	std::vector< GpuMat > *pX = &X;
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
-		conv2::convnn_gpu& cnv = m_conv[i];
+		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
 		cnv.forward(pX, RELU);
 		pX = &cnv.XOut();
 	}
 
-	conv2::vec2mat(m_conv.back().XOut(), m_vec2mat);
+	gpumat::conv2::vec2mat(m_conv.back().XOut(), m_vec2mat);
 
 	GpuMat *pX2 = &m_vec2mat;
 
@@ -132,101 +146,76 @@ void VOCGpuTrain::backward(std::vector<gpumat::GpuMat> &pY)
 	}
 }
 
-void VOCGpuTrain::predict(std::vector<gpumat::GpuMat> &pY, std::vector<std::vector<Obj> > &res, int boxes)
+void VOCGpuTrain::predict(std::vector<gpumat::GpuMat> &pY, std::vector<std::vector<Obj> > &res)
 {
 	std::vector< ct::Matf > mY;
 	std::for_each(pY.begin(), pY.end(), [&mY](const gpumat::GpuMat& it){
 		mY.resize(mY.size() + 1);
 		gpumat::convert_to_mat(it, mY.back());
 	});
-	predict(mY, res, boxes);
+	predict(mY, res);
 }
 
-void VOCGpuTrain::predict(std::vector<ct::Matf> &pY, std::vector< std::vector<Obj> > &res, int boxes)
+void VOCGpuTrain::predict(std::vector<ct::Matf> &pY, std::vector< std::vector<Obj> > &res)
 {
-	const int Crop = 5;
+	VocPredict predictor;
 
-	int rows = pY[0].rows;
+	predictor.setReader(m_reader);
+	predictor.predict(pY, res);
+}
 
-	struct IObj{
-		int cls;
-		float p;
-	};
+void VOCGpuTrain::predicts(std::vector<int> &list)
+{
+	if(!m_reader || list.empty())
+		return;
 
-	res.resize(rows);
+	std::vector< ct::Matf > mX, mY;
+	std::vector< std::vector< Obj > > res;
 
-	std::vector< ct::Matf > P;
-	std::vector<  IObj > iobj;
-	P.resize(K * K * boxes);
-	for(int i = 0; i < K * K; ++i){
-		for(int b = 0; b < boxes; ++b){
-			ct::v_mulColumns(pY[first_classes + i], pY[first_confidences + i], P[i * boxes + b], b);
-			ct::v_cropValues<float>(P[i * boxes + b], 0.1);
-		}
+	std::vector< gpumat::GpuMat > X;
+	std::vector< gpumat::GpuMat > y, t;
+
+	m_reader->getGroundTruthMat(list, Boxes, mX, mY);
+	cnv2gpu(mX, X);
+	cnv2gpu(mY, y);
+
+	forward(X, &t);
+
+	if(t.empty())
+		return;
+
+	QDir dir;
+	if(!dir.exists("test"))
+		dir.mkdir("test");
+
+	for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
+		gpumat::save_gmat(t[i], "test/cls" + std::to_string(k));
+		gpumat::save_gmat(y[i], "test/ycls" + std::to_string(k));
 	}
-	for(int i = 0; i < rows; ++i){
-		iobj.clear();
-		iobj.resize(P.size());
-		for(int j = 0; j < Classes; ++j){
-			std::vector<float> line;
-			for(size_t k = 0; k < P.size(); ++k){
-				float *dP = P[k].ptr(i);
-				float c = dP[k];
-				line.push_back(c);
-			}
-			crop_sort_classes(line, Crop);
-			for(size_t k = 0; k < P.size(); ++k){
-				float *dP = P[k].ptr(i);
-				dP[k] = line[k];
-			}
+	for(int i = first_boxes, k = 0; i < last_boxes + 1; ++i, ++k){
+		gpumat::save_gmat(t[i], "test/boxes" + std::to_string(k));
+		gpumat::save_gmat(y[i], "test/ybxs" + std::to_string(k));
+	}
+	for(int i = first_confidences, k = 0; i < last_confidences + 1; ++i, ++k){
+		gpumat::save_gmat(t[i], "test/cfd" + std::to_string(k));
+		gpumat::save_gmat(y[i], "test/ycfd" + std::to_string(k));
+	}
+
+	predict(t, res);
+
+	for(size_t i = 0; i < res.size(); ++i){
+		ct::Matf &Xi = mX[i];
+		cv::Mat im;
+		m_reader->getMat(Xi, im, cv::Size(W, W));
+
+		for(size_t j = 0; j < res[i].size(); ++j){
+			Obj& val = res[i][j];
+			std::cout << val.name << ": [" << val.p << ", (" << val.rect.x << ", "
+					  << val.rect.y << ", " << val.rect.width << ", " << val.rect.height << ")]\n";;
+
+			cv::rectangle(im, val.rect, cv::Scalar(0, 0, 255), 2);
 		}
-		for(size_t j = 0; j < P.size(); ++j){
-			ct::Matf& Pj = P[j];
-			float *dP = Pj.ptr(i);
-
-			IObj o1;
-			o1.cls = 0;
-			o1.p = dP[0];
-			bool f = false;
-			for(int k = 1; k < Classes; ++k){
-				if(o1.p < dP[k]){
-					o1.cls = k;
-					o1.p = dP[k];
-					printf("%d, %f, %s\n", k, o1.p, get_name(m_reader->classes, o1.cls).c_str());
-					f = true;
-
-				}
-			}
-			iobj[j] = o1;
-		}
-
-		for(int k = 0; k < iobj.size(); ++k){
-			IObj& io = iobj[k];
-			if(io.p > 0 && io.cls > 0){
-				int off1 = k / Boxes;
-				int off2 = k - off1 * Boxes;
-				ct::Matf& B = pY[off1 + first_boxes];
-				float *dB = B.ptr(i);
-				Obj obj;
-
-				cv::Rect rec;
-
-				int offy = off1 / K;
-				int offx = off1 - offy * K;
-				float D = W / K;
-
-				rec.x = offx * D + dB[off2 * 4 + 0] * D;
-				rec.y = offy * D + dB[off2 * 4 + 1] * D;
-				rec.width = dB[off2 * 4 + 2] * W;
-				rec.height = dB[off2 * 4 + 3] * W;
-
-				obj.name = get_name(m_reader->classes, io.cls);
-				obj.rect = rec;
-				obj.p = io.p;
-				res[i].push_back(obj);
-			}
-		}
-
+		cv::imwrite("test/image" + std::to_string(i) + ".jpg", im);
 	}
 }
 
@@ -275,14 +264,6 @@ void VOCGpuTrain::setNumSavePass(int num)
 void VOCGpuTrain::setSeed(int seed)
 {
 	cv::setRNGSeed(seed);
-}
-
-void cnv2gpu(std::vector< ct::Matf >& In, std::vector< gpumat::GpuMat >& Out)
-{
-	Out.resize(In.size());
-	for(size_t i = 0; i < In.size(); ++i){
-		gpumat::convert_to_gpu(In[i], Out[i]);
-	}
 }
 
 void VOCGpuTrain::get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, double lambda, bool test)
@@ -426,7 +407,7 @@ void VOCGpuTrain::test()
 
 	forward(X, &t);
 
-	predict(t, res, Boxes);
+	predict(t, res);
 }
 
 bool VOCGpuTrain::loadModel(const QString &model, bool load_mlp)

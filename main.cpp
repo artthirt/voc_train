@@ -168,6 +168,7 @@ int main(int argc, char *argv[])
 	bool train = false;
 	bool predict = false;
 	int seed = 1;
+	bool gpu = false;
 
 	std::vector< int > indices;
 
@@ -189,6 +190,9 @@ int main(int argc, char *argv[])
 	if(contain(res, "train")){
 		train = true;
 	}
+	if(contain(res, "gpu")){
+		gpu = true;
+	}
 	if(contain(res, "predict")){
 		std::vector< std::string > list = split(res["predict"]);
 		std::for_each(list.begin(), list.end(), [&](const std::string& val){
@@ -209,21 +213,32 @@ int main(int argc, char *argv[])
 
 	if(predict){
 
-		VocPredict predictor;
-
-		if(contain(res, "load_voc")){
-			std::string fn = res["load_voc"];
-			bool model_voc_loaded = predictor.loadModel(fn.c_str());
-			if(model_voc_loaded){
-				printf("<<<< model for VOC loaded >>>>\n");
-			}else{
-				return 1;
+		if(gpu){
+			bool model_voc_loaded = false;
+			if(contain(res, "load_voc")){
+				std::string fn = res["load_voc"];
+				model_voc_loaded = voc.loadModel(fn.c_str(), true);
+				if(model_voc_loaded){
+					printf("<<<< model for VOC loaded >>>>\n");
+				}
 			}
+			voc.predicts(indices);
+		}else{
+			VocPredict predictor;
+
+			if(contain(res, "load_voc")){
+				std::string fn = res["load_voc"];
+				bool model_voc_loaded = predictor.loadModel(fn.c_str());
+				if(model_voc_loaded){
+					printf("<<<< model for VOC loaded >>>>\n");
+				}else{
+					return 1;
+				}
+			}
+
+			predictor.setReader(&reader);
+			predictor.predicts(indices);
 		}
-
-		predictor.setReader(&reader);
-		predictor.predicts(indices);
-
 	}else if(!train){
 		std::vector< ct::Matf > r, im;
 		Annotation an = reader.getGroundTruthMat(25, 2, im, r);

@@ -98,6 +98,8 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 		float p;
 	};
 
+	float D = W / K;
+
 	res.resize(rows);
 
 	std::vector< ct::Matf > P;
@@ -109,74 +111,63 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 			ct::v_cropValues<float>(P[i * Boxes + b], 0.1);
 		}
 	}
-	for(int i = 0; i < rows; ++i){
+	for(int row = 0; row < rows; ++row){
 		IObj iobj[K * K * Boxes];
-		for(int j = 0; j < Classes; ++j){
-			std::vector<float> line;
-			for(size_t k = first_classes; k < last_classes + 1; ++k){
-				float *dP = pY[k].ptr(i);
-				float c = dP[j];
-				line.push_back(c);
+
+		for(int c = 0; c < Classes; ++c){
+			std::vector< float > line;
+			for(int j = 0; j < P.size(); ++j){
+				float *dP = P[j].ptr(row);
+				line.push_back(dP[c]);
 			}
-			crop_sort_classes(line, Crop);
-			for(size_t k = 0; k < P.size(); ++k){
-				float *dP = P[k].ptr(i);
-				dP[j] = line[j];
+			sort_indexes<float>(line);
+			crop_sort_classes<float>(line, Crop);
+			for(int j = 0; j < P.size(); ++j){
+				float *dP = P[j].ptr(row);
+				dP[c] = line[j];
 			}
 		}
-		for(size_t j = 0; j < P.size(); ++j){
-			ct::Matf& Pj = P[j];
-			float *dP = Pj.ptr(i);
 
-			IObj o1;
-			o1.cls = 0;
-			o1.p = dP[0];
-			bool f = false;
-			for(int k = 1; k < Classes; ++k){
-				if(o1.p < dP[k] && dP[k] > 0.1){
-					o1.cls = k;
-					o1.p = dP[k];
-					printf("%d, %f, %s\n", k, o1.p, get_name(m_reader->classes, o1.cls).c_str());
-					f = true;
-
+		for(int j = 0; j < P.size(); ++j){
+			float *dP = P[j].ptr(row);
+			float p = dP[0]; int id = 0;
+			for(int c = 1; c < Classes; ++c){
+				if(p < dP[c]){
+					p = dP[c];
+					id = c;
 				}
 			}
-			if(f)
-				iobj[j] = o1;
-		}
+			if(p > 0.1 && id > 0){
+				Obj ob;
+				ob.p = p;
+				ob.name = get_name(m_reader->classes, id);
 
-		for(int k = 0; k < P.size(); ++k){
-			IObj& io = iobj[k];
-			if(io.p > 0 && io.cls > 0){
-				int off1 = k / Boxes;
-				int off2 = k - off1 * Boxes;
-				ct::Matf& B = pY[off1 + first_boxes];
-				float *dB = B.ptr(i);
-				Obj obj;
+				int off2 = j % Boxes;
+				int off1 = (j - off2)/Boxes;
 
-				cv::Rect rec;
 
-				int offy = off1 / K;
-				int offx = off1 - offy * K;
-				float D = W / K;
+				int y = off1 / K;
+				int x = off1 - y * K;
+
+				ct::Matf& B = pY[first_boxes + off1];
+				float *dB = B.ptr(row);
 
 				float dx = dB[off2 * 4 + 0];
 				float dy = dB[off2 * 4 + 1];
 				float dw = dB[off2 * 4 + 2];
 				float dh = dB[off2 * 4 + 3];
 
-				if(dx < 0 || dx > 1 || dy < 0 || dy > 1 || dw < 0 || dh < 0)
+				float w = dw * dw * W;
+				float h = dh * dh * W;
+
+				if(!w || !h)
 					continue;
 
-				rec.x = offx * D + dx * D;
-				rec.y = offy * D + dy * D;
-				rec.width = dw * W;
-				rec.height = dh * W;
-
-				obj.name = get_name(m_reader->classes, io.cls);
-				obj.rect = rec;
-				obj.p = io.p;
-				res[i].push_back(obj);
+				ob.rectf = cv::Rect2f(dx, dy, dw, dh);
+				ob.rect = cv::Rect((float)x * D + dx * D - w/2,
+								   (float)y * D + dy * D - h/2,
+								   w, h);
+				res[row].push_back(ob);
 			}
 		}
 

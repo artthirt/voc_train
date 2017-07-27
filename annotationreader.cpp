@@ -671,3 +671,30 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 		}
 	}
 }
+
+void AnnotationReader::getMat(const ct::Matf &in, cv::Mat &out, const cv::Size sz)
+{
+	if(in.empty())
+		return;
+
+	int channels = in.total() / (sz.area());
+	if(channels != 3)
+		return;
+
+	out = cv::Mat(sz, CV_32FC3);
+
+	float* dX1 = in.ptr() + 0 * out.rows * out.cols;
+	float* dX2 = in.ptr() + 1 * out.rows * out.cols;
+	float* dX3 = in.ptr() + 2 * out.rows * out.cols;
+
+	int idx = 0;
+	for(int y = 0; y < out.rows; ++y){
+		float *v = out.ptr<float>(y);
+		for(int x = 0; x < out.cols; ++x, ++idx){
+			v[x * out.channels() + 0] = dX1[idx];
+			v[x * out.channels() + 1] = dX2[idx];
+			v[x * out.channels() + 2] = dX3[idx];
+		}
+	}
+	out.convertTo(out, CV_8UC3, 255.);
+}

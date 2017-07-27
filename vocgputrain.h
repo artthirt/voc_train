@@ -29,8 +29,9 @@ public:
 	void forward(std::vector< gpumat::GpuMat >& X, std::vector< gpumat::GpuMat >* pY);
 	void backward(std::vector< gpumat::GpuMat >& pY);
 
-	void predict(std::vector< gpumat::GpuMat >& pY, std::vector< std::vector<Obj> >& res, int boxes);
-	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res, int boxes);
+	void predict(std::vector< gpumat::GpuMat >& pY, std::vector< std::vector<Obj> >& res);
+	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res);
+	void predicts(std::vector< int > & list);
 
 	int passes() const;
 	void setPasses(int passes);
