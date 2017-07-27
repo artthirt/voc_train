@@ -13,73 +13,16 @@
 #include "gpu_mlp.h"
 #include "convnn2_gpu.h"
 
-struct Obj{
-	Obj(){
-		p = 0;
-	}
+#include "annotationreader.h"
 
-	std::string name;
-	cv::Rect rect;
-	cv::Rect2f rectf;
-	float p;
-};
-
-struct BndBox{
-	BndBox(){
-		xmin = ymin = xmax = ymax = 0;
-	}
-	bool empty(){
-		return xmin == 0 && xmax == 0 && ymin == 0&& ymax == 0;
-	}
-	void clear(){
-		xmin = ymin = xmax = ymax = 0;
-	}
-	int x() const{
-		return std::min(xmin, xmax);
-	}
-	int y() const{
-		return std::min(ymin, ymax);
-	}
-	int w() const{
-		return std::abs(xmax - xmin);
-	}
-	int h() const{
-		return std::abs(ymax - ymin);
-	}
-
-	int xmin;
-	int ymin;
-	int xmax;
-	int ymax;
-};
-
-struct Annotation{
-	std::string folder;
-	std::string filename;
-	std::vector< Obj > objs;
-	cv::Size size;
-};
-
-class VOCGpuTrain: public QXmlDefaultHandler
+class VOCGpuTrain
 {
 public:
-	VOCGpuTrain();
-	bool setVocFolder(const QString sdir);
-
-	bool show(int index, bool flip = false, const std::string name = "out");
-
-	size_t size() const;
+	VOCGpuTrain(AnnotationReader* reader);
 
 	bool loadModel(const QString& model, bool load_mlp = false);
 	void saveModel(const QString& name);
 	void setModelSaveName(const QString& name);
-
-	Annotation &getGroundTruthMat(int index, int boxes, std::vector<ct::Matf> &images,
-						   std::vector< ct::Matf >& res, int row = 0, int rows = 1, bool flip = false, bool load_image = true);
-	void getGroundTruthMat(std::vector<int> indices, int boxes,
-						   std::vector<ct::Matf> &images, std::vector< ct::Matf >& res, bool flip = false);
-
-	void getImage(const std::string& filename, ct::Matf& res, bool flip = false);
 
 	void init();
 
@@ -104,19 +47,10 @@ public:
 	void test();
 
 private:
-	QString m_vocdir;
-	QString m_model;
-	std::vector< Annotation > m_annotations;
-	QString m_key;
-	QString m_value;
-	Annotation* m_currentAn;
-	Obj* m_curObj;
-	BndBox m_box;
-	cv::Size* m_refSize;
-	cv::Mat m_sample;
-	int m_index;
+	AnnotationReader* m_reader;
 
-	std::vector< ct::Matf > m_lambdaBxs;
+	QString m_model;
+
 	std::vector< gpumat::GpuMat > m_glambdaBxs;
 
 	//////////
@@ -142,18 +76,7 @@ private:
 
 	//////////
 
-	QMap< std::string, int > m_classes;
-
-	bool load_annotation(const QString& fileName, Annotation& annotation);
 	void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, double lambda = 1., bool test = false);
-	void update_output(std::vector< ct::Matf >& res, Obj& ob, int off, int bxid, int row);
-
-	// QXmlContentHandler interface
-public:
-	bool startElement(const QString &namespaceURI, const QString &localName, const QString &qName, const QXmlAttributes &atts);
-	bool endElement(const QString &namespaceURI, const QString &localName, const QString &qName);
-	bool characters(const QString &ch);
-	QString errorString() const;
 };
 
 #endif // VOCGPUTRAIN_H

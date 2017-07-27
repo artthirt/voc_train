@@ -8,11 +8,17 @@ CONFIG -= app_bundle
 QT += core xml
 
 HEADERS += \
-    vocgputrain.h
+    vocgputrain.h \
+    vocpredict.h \
+    metaconfig.h \
+    annotationreader.h
 
 SOURCES += \
     main.cpp \
-    vocgputrain.cpp
+    vocgputrain.cpp \
+    vocpredict.cpp \
+    annotationreader.cpp \
+    metaconfig.cpp
 
 win32{
     INCLUDEPATH += $$OPENCV_DIR/include

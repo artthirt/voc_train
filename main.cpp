@@ -5,6 +5,9 @@
 #include "gpumat.h"
 #include "helper_gpu.h"
 
+#include "annotationreader.h"
+#include "vocpredict.h"
+
 #include <chrono>
 
 bool contain(const std::map<std::string, std::string>& mp, const std::string& key)
@@ -52,6 +55,9 @@ std::map<std::string, std::string> parseArgs(int argc, char *argv[])
 		}
 		if(str == "-train" && i < argc){
 			res["train"] = "1";
+		}
+		if(str == "-predict" && i < argc){
+			res["predict"] = argv[i + 1];
 		}
 	}
 	return res;
@@ -116,6 +122,19 @@ void test(bool save = false)
 
 ////////////////////
 
+std::vector< std::string > split(const std::string& value)
+{
+	std::vector<std::string> strings;
+	std::istringstream f(value);
+	std::string s;
+	while (getline(f, s, ',')) {
+		strings.push_back(s);
+	}
+	return strings;
+}
+
+////////////////////
+
 int main(int argc, char *argv[])
 {
 #if 0
@@ -130,7 +149,7 @@ int main(int argc, char *argv[])
 		auto end = steady_clock::now();
 		auto elapsed = duration_cast<milliseconds>(end - start);
 		long duration = elapsed.count();
-		printf("duration %f", (double)duration/cnt);
+		printf("duration %f\n", (double)duration/cnt);
 
 		test(true);
 	}
@@ -138,14 +157,19 @@ int main(int argc, char *argv[])
 
 	std::map<std::string, std::string> res = parseArgs(argc, argv);
 
-	VOCGpuTrain voc;
+	AnnotationReader reader;
+
+	VOCGpuTrain voc(&reader);
 
 	QString voc_dir;
 
 	int passes = 100000, batch = 10;
 	float lr = 0.0001;
 	bool train = false;
+	bool predict = false;
 	int seed = 1;
+
+	std::vector< int > indices;
 
 	if(contain(res, "voc")){
 		voc_dir = QString::fromStdString(res["voc"]);
@@ -165,7 +189,14 @@ int main(int argc, char *argv[])
 	if(contain(res, "train")){
 		train = true;
 	}
-	if(!voc.setVocFolder(voc_dir)){
+	if(contain(res, "predict")){
+		std::vector< std::string > list = split(res["predict"]);
+		std::for_each(list.begin(), list.end(), [&](const std::string& val){
+			indices.push_back(std::stoi(val));
+		});
+		predict = true;
+	}
+	if(!reader.setVocFolder(voc_dir)){
 		return 1;
 	}
 
@@ -176,9 +207,26 @@ int main(int argc, char *argv[])
 	int id = 25;
 	int cnt = 0;
 
-	if(!train){
+	if(predict){
+
+		VocPredict predictor;
+
+		if(contain(res, "load_voc")){
+			std::string fn = res["load_voc"];
+			bool model_voc_loaded = predictor.loadModel(fn.c_str());
+			if(model_voc_loaded){
+				printf("<<<< model for VOC loaded >>>>\n");
+			}else{
+				return 1;
+			}
+		}
+
+		predictor.setReader(&reader);
+		predictor.predicts(indices);
+
+	}else if(!train){
 		std::vector< ct::Matf > r, im;
-		Annotation an = voc.getGroundTruthMat(25, 2, im, r);
+		Annotation an = reader.getGroundTruthMat(25, 2, im, r);
 
 		printf("<<<< filename %s >>>>\n", an.filename.c_str());
 		for(size_t i = 0; i < an.objs.size(); ++i){
@@ -197,12 +245,12 @@ int main(int argc, char *argv[])
 		inds.push_back(3);
 		inds.push_back(25);
 		inds.push_back(21);
-		voc.getGroundTruthMat(inds, 2, im, r);
+		reader.getGroundTruthMat(inds, 2, im, r);
 		inds.clear();
 		inds.push_back(11);
 		inds.push_back(25);
 		inds.push_back(41);
-		voc.getGroundTruthMat(inds, 2, im, r);
+		reader.getGroundTruthMat(inds, 2, im, r);
 		std::cout << "Mat[0] size: " << r[0].rows << "," << r[0].cols << std::endl;
 
 		for(size_t i = 0; i < r.size(); ++i){
@@ -213,15 +261,15 @@ int main(int argc, char *argv[])
 		const int CNT = 500;
 
 		while(1){
-			if(!voc.show(id, false))
+			if(!reader.show(id, false))
 				break;
-			if(!voc.show(id, true, "inv"))
+			if(!reader.show(id, true, "inv"))
 				break;
 
 			if(cnt++ > CNT){
 				id += 1;
 				cnt = 0;
-				if(id >= voc.size()){
+				if(id >= reader.size()){
 					id = 0;
 				}
 			}
