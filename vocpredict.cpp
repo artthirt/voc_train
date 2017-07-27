@@ -160,10 +160,18 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 				int offx = off1 - offy * K;
 				float D = W / K;
 
-				rec.x = offx * D + dB[off2 * 4 + 0] * D;
-				rec.y = offy * D + dB[off2 * 4 + 1] * D;
-				rec.width = dB[off2 * 4 + 2] * W;
-				rec.height = dB[off2 * 4 + 3] * W;
+				float dx = dB[off2 * 4 + 0];
+				float dy = dB[off2 * 4 + 1];
+				float dw = dB[off2 * 4 + 2];
+				float dh = dB[off2 * 4 + 3];
+
+				if(dx < 0 || dx > 1 || dy < 0 || dy > 1 || dw < 0 || dh < 0)
+					continue;
+
+				rec.x = offx * D + dx * D;
+				rec.y = offy * D + dy * D;
+				rec.width = dw * W;
+				rec.height = dh * W;
 
 				obj.name = get_name(m_reader->classes, io.cls);
 				obj.rect = rec;
