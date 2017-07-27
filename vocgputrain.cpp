@@ -343,7 +343,7 @@ void VOCGpuTrain::doPass()
 	cols.resize(m_batch);
 	for(int i = 0; i < m_passes; ++i){
 		cv::randu(cols, 0, m_reader->annotations.size() - 1);
-		m_reader->getGroundTruthMat(cols, Boxes, mX, mY, true);
+		m_reader->getGroundTruthMat(cols, Boxes, mX, mY, true, true);
 		cnv2gpu(mX, X);
 		cnv2gpu(mY, y);
 		cnv2gpu(m_reader->lambdaBxs, m_glambdaBxs);

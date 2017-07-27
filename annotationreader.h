@@ -7,6 +7,8 @@
 #include "custom_types.h"
 
 #include <opencv2/opencv.hpp>
+#include <random>
+#include <mutex>
 
 #include <QMap>
 
@@ -72,11 +74,12 @@ public:
 
 
 	Annotation &getGroundTruthMat(int index, int boxes, std::vector<ct::Matf> &images,
-						   std::vector< ct::Matf >& res, int row = 0, int rows = 1, bool flip = false, bool load_image = true);
+						   std::vector< ct::Matf >& res, int row = 0, int rows = 1,
+								  bool flip = false, bool load_image = true, bool aug = false, bool init_input = true);
 	void getGroundTruthMat(std::vector<int> indices, int boxes,
-						   std::vector<ct::Matf> &images, std::vector< ct::Matf >& res, bool flip = false);
+						   std::vector<ct::Matf> &images, std::vector< ct::Matf >& res, bool flip = false, bool aug = false);
 
-	void getImage(const std::string& filename, ct::Matf& res, bool flip = false);
+	void getImage(const std::string& filename, ct::Matf& res, bool flip = false, bool aug = false);
 
 	void getMat(const ct::Matf& in, cv::Mat& out, const cv::Size sz);
 
@@ -92,6 +95,9 @@ private:
 	cv::Size* m_refSize;
 	cv::Mat m_sample;
 	int m_index;
+	std::mutex m_mutex;
+
+	std::mt19937 m_gt;
 
 	bool load_annotation(const QString& fileName, Annotation& annotation);
 	void update_output(std::vector< ct::Matf >& res, Obj& ob, int off, int bxid, int row);

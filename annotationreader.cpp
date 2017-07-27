@@ -483,36 +483,38 @@ void AnnotationReader::update_output(std::vector< ct::Matf >& res, Obj& ob, int 
 }
 
 Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vector< ct::Matf >& images,
-									std::vector<ct::Matf> &res, int row, int rows, bool flip, bool load_image)
+									std::vector<ct::Matf> &res, int row, int rows, bool flip, bool load_image, bool aug, bool init_input)
 {
 	if(index < 0 || index > annotations.size()){
 		throw;
 	}
 	Annotation& it = annotations[index];
 
-	int D = W / K;
+	if(init_input){
+		if(lambdaBxs.empty()){
+			lambdaBxs.resize(K * K);
+			for(size_t i = 0; i < lambdaBxs.size(); ++i){
+				lambdaBxs[i].setSize(rows, 1);
+				lambdaBxs[i].ptr(row)[0] = (0.5);
+			}
+		}
 
-	lambdaBxs.resize(K * K);
-	for(size_t i = 0; i < lambdaBxs.size(); ++i){
-		lambdaBxs[i].setSize(rows, 1);
-		lambdaBxs[i].ptr(row)[0] = 0.5;
-	}
+		if(res.size() != last_confidences + 1)
+			res.resize(last_confidences + 1);
+		for(int i = first_classes; i < last_classes + 1; ++i){
+			res[i].setSize(rows, Classes);
+		}
+		for(int i = first_boxes; i < last_boxes + 1; ++i){
+			res[i].setSize(rows, 4 * boxes);
+		}
+		for(int i = first_confidences; i < last_confidences + 1; ++i){
+			res[i].setSize(rows, 1 * boxes);
+		}
 
-	if(res.size() != last_confidences + 1)
-		res.resize(last_confidences + 1);
-	for(int i = first_classes; i < last_classes + 1; ++i){
-		res[i].setSize(rows, Classes);
+		std::for_each(res.begin(), res.end(), [=](ct::Matf& mat){
+			mat.fill(0, row, 1);
+		});
 	}
-	for(int i = first_boxes; i < last_boxes + 1; ++i){
-		res[i].setSize(rows, 4 * boxes);
-	}
-	for(int i = first_confidences; i < last_confidences + 1; ++i){
-		res[i].setSize(rows, 1 * boxes);
-	}
-
-	std::for_each(res.begin(), res.end(), [=](ct::Matf& mat){
-		mat.fill(0, row, 1);
-	});
 
 	if(load_image){
 		if(images.size() != rows){
@@ -520,7 +522,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		}
 		QString path_image = m_vocdir + "/";
 		path_image += path_images + "/" + it.filename.c_str();
-		getImage(path_image.toStdString(), images[row], flip);
+		getImage(path_image.toStdString(), images[row], flip, aug);
 	}
 
 	std::vector< Obj > objs[K * K];
@@ -602,7 +604,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 }
 
 void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
-									std::vector<ct::Matf> &images, std::vector<ct::Matf> &res, bool flip)
+									std::vector<ct::Matf> &images, std::vector<ct::Matf> &res, bool flip, bool aug)
 {
 	int rows = indices.size();
 
@@ -629,17 +631,23 @@ void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
 		mat.fill(0);
 	});
 
+	lambdaBxs.resize(K * K);
+	for(size_t i = 0; i < lambdaBxs.size(); ++i){
+		lambdaBxs[i].setSize(rows, 1);
+		lambdaBxs[i].fill(0.5);
+	}
+
 	if(images.size() != rows)
 		images.resize(rows);
 
 	lambdaBxs.resize(K * K);
 
 	for(size_t i = 0; i < indices.size(); ++i){
-		getGroundTruthMat(indices[i], boxes, images, res, i, rows, flips[i]);
+		getGroundTruthMat(indices[i], boxes, images, res, i, rows, flips[i], true, aug, false);
 	}
 }
 
-void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool flip)
+void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool flip, bool aug)
 {
 	cv::Mat m = cv::imread(filename);
 	if(m.empty())
@@ -652,8 +660,14 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 	}
 
 //	cv::imwrite("ss.bmp", m);
-
-	m.convertTo(m, CV_32F, 1./255., 0);
+	if(!aug){
+		m.convertTo(m, CV_32F, 1./255., 0);
+	}else{
+		std::normal_distribution<float> nd(0, 0.2);
+		float br = nd(m_gt);
+		float cntr = nd(m_gt);
+		m.convertTo(m, CV_32F, (1. + br)/255., cntr);
+	}
 
 	res.setSize(1, m.cols * m.rows * m.channels());
 
@@ -662,6 +676,7 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 	float* dX2 = res.ptr() + 1 * m.rows * m.cols;
 	float* dX3 = res.ptr() + 2 * m.rows * m.cols;
 
+#pragma omp parallel for
 	for(int y = 0; y < m.rows; ++y){
 		float *v = m.ptr<float>(y);
 		for(int x = 0; x < m.cols; ++x, ++idx){
