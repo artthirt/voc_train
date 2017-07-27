@@ -26,7 +26,7 @@ public:
 
 	void init();
 
-	void forward(std::vector< gpumat::GpuMat >& X, std::vector< gpumat::GpuMat >* pY);
+	void forward(std::vector< gpumat::GpuMat >& X, std::vector< gpumat::GpuMat >* pY, bool dropout = false);
 	void backward(std::vector< gpumat::GpuMat >& pY);
 
 	void predict(std::vector< gpumat::GpuMat >& pY, std::vector< std::vector<Obj> >& res);

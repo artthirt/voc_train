@@ -77,11 +77,20 @@ void VOCGpuTrain::init()
 	m_mlp[1].init(4096, 2048, gpumat::GPU_FLOAT);
 	m_mlp[2].init(2048, m_out_features, gpumat::GPU_FLOAT);
 
+	for(size_t i = 0; i < m_conv.size(); ++i){
+		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
+		cnv.setDropout(0.96);
+	}
+	for(size_t i = 0; i < m_mlp.size(); ++i){
+		gpumat::mlp& _mlp = m_mlp[i];
+		_mlp.setDropout(0.93);
+	}
+
 	m_optim.init(m_mlp);
 	m_optim.setAlpha(m_lr);
 }
 
-void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::GpuMat> *pY)
+void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::GpuMat> *pY, bool dropout)
 {
 	if(X.empty() || m_conv.empty() || m_mlp.empty())
 		return;
@@ -92,6 +101,7 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::Gp
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
 		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
+		cnv.setDropout(dropout);
 		cnv.forward(pX, RELU);
 		pX = &cnv.XOut();
 	}
@@ -106,6 +116,7 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::Gp
 		if(i == m_mlp.size() - 1)
 			func = LINEAR;
 		mlp& _mlp = m_mlp[i];
+		_mlp.setDropout(dropout);
 		_mlp.forward(pX2, func);
 		pX2 = &_mlp.Y();
 	}
@@ -337,7 +348,7 @@ void VOCGpuTrain::doPass()
 		cnv2gpu(mY, y);
 		cnv2gpu(m_reader->lambdaBxs, m_glambdaBxs);
 
-		forward(X, &t);
+		forward(X, &t, true);
 
 		get_delta(t, y, 1., (i % 100) == 0);
 
