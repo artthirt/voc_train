@@ -168,19 +168,19 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 
 		for(int c = 0; c < Classes; ++c){
 			std::vector< float > line;
-			for(int j = 0; j < P.size(); ++j){
+			for(int j = 0; j < (int)P.size(); ++j){
 				float *dP = P[j].ptr(row);
 				line.push_back(dP[c]);
 			}
 			sort_indexes<float>(line);
 			crop_sort_classes<float>(line, Crop);
-			for(int j = 0; j < P.size(); ++j){
+			for(int j = 0; j < (int)P.size(); ++j){
 				float *dP = P[j].ptr(row);
 				dP[c] = line[j];
 			}
 		}
 
-		for(int j = 0; j < P.size(); ++j){
+		for(int j = 0; j < (int)P.size(); ++j){
 			float *dP = P[j].ptr(row);
 			float p = dP[0]; int id = 0;
 			for(int c = 1; c < Classes; ++c){
@@ -309,11 +309,11 @@ bool VocPredict::loadModel(const QString &model)
 
 	printf("Load model: conv size %d, mlp size %d\n", cnvs, mlps);
 
-	if(m_conv.size() < cnvs)
+	if((int)m_conv.size() < cnvs)
 		m_conv.resize(cnvs);
 
 	printf("conv\n");
-	for(size_t i = 0; i < cnvs; ++i){
+	for(int i = 0; i < cnvs; ++i){
 		conv2::convnnf &cnv = m_conv[i];
 		cnv.read2(fs);
 		printf("layer %d: rows %d, cols %d\n", i, cnv.W[0].rows, cnv.W[0].cols);

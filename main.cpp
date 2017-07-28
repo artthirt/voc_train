@@ -284,7 +284,7 @@ int main(int argc, char *argv[])
 			if(cnt++ > CNT){
 				id += 1;
 				cnt = 0;
-				if(id >= reader.size()){
+				if(id >= (int)reader.size()){
 					id = 0;
 				}
 			}

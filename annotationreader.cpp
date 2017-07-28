@@ -242,7 +242,7 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 {
 	if(!annotations.size())
 		return false;
-	if(index > annotations.size()){
+	if(index > (int)annotations.size()){
 		index = annotations.size() - 1;
 	}
 
@@ -487,7 +487,7 @@ void AnnotationReader::update_output(std::vector< ct::Matf >& res, Obj& ob, int 
 Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vector< ct::Matf >& images,
 									std::vector<ct::Matf> &res, int row, int rows, bool flip, bool load_image, bool aug, bool init_input)
 {
-	if(index < 0 || index > annotations.size()){
+	if(index < 0 || index > (int)annotations.size()){
 		throw;
 	}
 	Annotation& it = annotations[index];
@@ -519,7 +519,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 	}
 
 	if(load_image){
-		if(images.size() != rows){
+		if((int)images.size() != rows){
 			images.resize(rows);
 		}
 		QString path_image = m_vocdir + "/";
@@ -642,7 +642,7 @@ void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
 		lambdaBxs[i].fill(0.5);
 	}
 
-	if(images.size() != rows)
+	if((int)images.size() != rows)
 		images.resize(rows);
 
 	lambdaBxs.resize(K * K);
@@ -690,6 +690,8 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 			dX3[off] = v[x * m.channels() + 2];
 		}
 	}
+
+	res.clipRange(0, 1);
 
 //	QDateTime dt = QDateTime::currentDateTime();
 //	QString sdt = dt.toString("yyyy_MM_dd_hh_mm_ss_zzz");

@@ -453,11 +453,11 @@ bool VOCGpuTrain::loadModel(const QString &model, bool load_mlp)
 
 	printf("Load model: conv size %d, mlp size %d\n", cnvs, mlps);
 
-	if(m_conv.size() < cnvs)
+	if((int)m_conv.size() < cnvs)
 		m_conv.resize(cnvs);
 
 	printf("conv\n");
-	for(size_t i = 0; i < cnvs; ++i){
+	for(int i = 0; i < cnvs; ++i){
 		gpumat::conv2::convnn_gpu &cnv = m_conv[i];
 		cnv.read2(fs);
 		printf("layer %d: rows %d, cols %d\n", i, cnv.W[0].rows, cnv.W[0].cols);
