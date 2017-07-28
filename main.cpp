@@ -293,6 +293,35 @@ int main(int argc, char *argv[])
 			if(ch == 13)
 				break;
 		}
+	}else if(!gpu){
+		VocPredict vp;
+		vp.setReader(&reader);
+
+		vp.setPasses(passes);
+		vp.setBatch(batch);
+		vp.setLr(lr);
+
+		bool model_voc_loaded = false;
+		if(contain(res, "load_voc")){
+			std::string fn = res["load_voc"];
+			model_voc_loaded = vp.loadModel(fn.c_str());
+			if(model_voc_loaded){
+				printf("<<<< model for VOC loaded >>>>\n");
+			}
+		}
+		if(contain(res, "save")){
+			std::string fn = res["save"];
+			vp.setModelSaveName(fn.c_str());
+		}
+
+		vp.setSeed(seed);
+
+		printf("learning rate %f\n", lr);
+		printf("passes %d\n", passes);
+		printf("batch %d\n", batch);
+		printf("seed %d\n", seed);
+
+		vp.doPass();
 	}else{
 		bool model_voc_loaded = false;
 		if(contain(res, "load_voc")){
@@ -318,11 +347,7 @@ int main(int argc, char *argv[])
 		printf("batch %d\n", batch);
 		printf("seed %d\n", seed);
 
-#if 0
-		voc.test();
-#else
 		voc.doPass();
-#endif
 	}
 
 	return 0;

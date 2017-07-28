@@ -7,6 +7,14 @@
 
 VocPredict::VocPredict()
 {
+	m_lr = 0.00001;
+	m_passes = 100000;
+	m_batch = 10;
+	m_num_save_pass = 30;
+	m_check_count = 300;
+
+	m_modelSave = "model_voc.bin";
+
 	m_reader = 0;
 
 	m_out_features = 0;
@@ -22,6 +30,23 @@ VocPredict::VocPredict()
 		m_cols.push_back(Boxes);
 		m_out_features += Boxes;
 	}
+}
+
+void VocPredict::setPasses(int val)
+{
+	m_passes = val;
+}
+
+void VocPredict::setBatch(int val)
+{
+	m_batch = val;
+}
+
+void VocPredict::setLr(float lr)
+{
+	m_lr = lr;
+
+	m_optim.setAlpha(lr);
 }
 
 void VocPredict::init()
@@ -41,6 +66,9 @@ void VocPredict::init()
 	m_mlp[0].init(outFeatures, 4096);
 	m_mlp[1].init(4096, 2048);
 	m_mlp[2].init(2048, m_out_features);
+
+	m_optim.init(m_mlp);
+	m_optim.setAlpha(m_lr);
 }
 
 void VocPredict::setReader(AnnotationReader *reader)
@@ -84,6 +112,30 @@ void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<ct::Matf> *pY)
 	}
 	for(int i = first_confidences; i < last_confidences + 1; ++i){
 		v_sigmoid((*pY)[i]);
+	}
+}
+
+void VocPredict::backward(std::vector<ct::Matf> &pY)
+{
+	ct::hconcat2(pY, m_D);
+
+	ct::Matf *pD = &m_D;
+	for(int i = m_mlp.size() - 1; i > -1; i--){
+		ct::mlpf& mlp = m_mlp[i];
+		mlp.backward(*pD, i == 0 && cnv_do_back_layers == 0);
+		pD = &mlp.DltA0;
+	}
+	m_optim.pass(m_mlp);
+
+	if(cnv_do_back_layers > 0){
+		ct::mlpf& mlp0 = m_mlp.front();
+		conv2::convnnf& cnvl = m_conv.back();
+		conv2::mat2vec(mlp0.DltA0, cnvl.szK, m_delta_cnv);
+		std::vector< ct::Matf > *pCnv = &m_delta_cnv;
+		for(int i = m_conv.size() - 1; i > lrs; --i){
+			conv2::convnnf& cnvl = m_conv[i];
+			pCnv = &cnvl.Dlt;
+		}
 	}
 }
 
@@ -277,4 +329,150 @@ bool VocPredict::loadModel(const QString &model)
 
 	printf("model loaded.\n");
 	return true;
+}
+
+void VocPredict::saveModel(const QString &name)
+{
+	QString n = QDir::fromNativeSeparators(name);
+
+	std::fstream fs;
+	fs.open(n.toStdString(), std::ios_base::out | std::ios_base::binary);
+
+	if(!fs.is_open()){
+		printf("File %s not open\n", n.toLatin1().data());
+		return;
+	}
+
+//	write_vector(fs, m_cnvlayers);
+//	write_vector(fs, m_layers);
+
+//	fs.write((char*)&m_szA0, sizeof(m_szA0));
+
+	int cnvs = m_conv.size(), mlps = m_mlp.size();
+
+	/// size of convolution array
+	fs.write((char*)&cnvs, sizeof(cnvs));
+	/// size of mlp array
+	fs.write((char*)&mlps, sizeof(mlps));
+
+	for(size_t i = 0; i < m_conv.size(); ++i){
+		conv2::convnnf &cnv = m_conv[i];
+		cnv.write2(fs);
+	}
+
+	for(size_t i = 0; i < m_mlp.size(); ++i){
+		ct::mlpf& mlp = m_mlp[i];
+		mlp.write2(fs);
+	}
+
+	printf("model saved.\n");
+}
+
+void VocPredict::setModelSaveName(const QString &name)
+{
+	m_modelSave = name;
+}
+
+void VocPredict::setSeed(int seed)
+{
+	cv::setRNGSeed(seed);
+}
+
+void VocPredict::get_delta(std::vector< ct::Matf >& t, std::vector< ct::Matf >& y, bool test)
+{
+	for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
+		if(test){
+			ct::save_mat(t[i], "test/cls" + std::to_string(k));
+			ct::save_mat(y[i], "test/ycls" + std::to_string(k));
+		}
+		ct::subWithColumn(t[i], y[i], m_reader->lambdaBxs[k]);
+	}
+	for(int i = first_boxes, k = 0; i < last_boxes + 1; ++i, ++k){
+		if(test){
+			ct::save_mat(t[i], "test/boxes" + std::to_string(k));
+			ct::save_mat(y[i], "test/ybxs" + std::to_string(k));
+		}
+		ct::subWithColumn(t[i], y[i], m_reader->lambdaBxs[k]);
+	}
+	for(int i = first_confidences, k = 0; i < last_confidences + 1; ++i, ++k){
+		if(test){
+			ct::save_mat(t[i], "test/cfd" + std::to_string(k));
+			ct::save_mat(y[i], "test/ycfd" + std::to_string(k));
+		}
+		ct::back_delta_sigmoid(t[i], y[i], m_reader->lambdaBxs[k]);
+//		gpumat::sub(t[i], y[i], t[i]);
+	}
+}
+
+float get_loss(std::vector< ct::Matf >& t)
+{
+	float res1 = 0;
+	for(int i = first_classes; i < last_classes + 1; ++i){
+		ct::v_elemwiseSqr(t[i]);
+		res1 += t[i].sum() / t[i].rows;
+	}
+	res1 /= (last_classes - first_classes + 1);
+
+	float res2 = 0;
+	for(int i = first_boxes; i < last_boxes + 1; ++i){
+		ct::v_elemwiseSqr(t[i]);
+		res2 += t[i].sum() / t[i].rows;
+	}
+	res2 /= (last_boxes - first_boxes + 1);
+
+	float res3 = 0;
+	for(int i = first_confidences; i < last_confidences + 1; ++i){
+		ct::v_elemwiseSqr(t[i]);
+		res3 += t[i].sum() / t[i].rows;
+	}
+	res3 /= (last_confidences - first_confidences + 1);
+
+	return res1 + res2 + res3;
+}
+
+void VocPredict::doPass()
+{
+	if(!m_reader)
+		return;
+
+	std::vector< ct::Matf > X, y, t;
+	std::vector< int > list;
+	list.resize(m_batch);
+
+	for(int pass = 0; pass < m_passes; ++pass){
+
+		cv::randu(list, 0, m_reader->annotations.size() - 1);
+
+		m_reader->getGroundTruthMat(list, Boxes, X, y, true, true);
+
+		forward(X, &t);
+
+		get_delta(t, y, (pass % 100) == 0);
+
+		backward(t);
+
+		printf("pass=%d    \r", pass);
+		std::cout << std::flush;
+
+		if((pass % m_num_save_pass) == 0 && pass > 0 || pass == 30){
+			int k = 0;
+			float loss = 0;
+			while( k < m_check_count){
+				cv::randu(list, 0, m_reader->annotations.size() - 1);
+				m_reader->getGroundTruthMat(list, Boxes, X, y);
+
+				forward(X, &t);
+
+				get_delta(t, y);
+
+				loss += get_loss(t);
+
+				k += m_batch;
+			}
+			loss /= m_check_count;
+			printf("pass=%d, loss=%f    \n", pass, loss);
+			//saveModel(m_modelSave);
+		}
+	}
+
 }
