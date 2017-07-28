@@ -10,7 +10,7 @@ VocPredict::VocPredict()
 	m_lr = 0.00001;
 	m_passes = 100000;
 	m_batch = 10;
-	m_num_save_pass = 30;
+	m_num_save_pass = 100;
 	m_check_count = 100;
 
 	m_modelSave = "model_voc.bin";
