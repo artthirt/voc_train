@@ -5,6 +5,8 @@
 #include <QDir>
 #include <QFile>
 
+#include <QDateTime>
+
 const QString path_annotations("Annotations");
 const QString path_images("JPEGImages");
 
@@ -610,8 +612,11 @@ void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
 
 	std::vector< int > flips;
 	if(flip){
+		std::binomial_distribution<int> bd(1, 0.5);
 		flips.resize(indices.size());
-		cv::randu(flips, 0, 1);
+		for(size_t i = 0; i < flips.size(); ++i){
+			flips[i] = bd(m_gt);
+		}
 	}else{
 		flips.resize(indices.size(), 0);
 	}
@@ -671,23 +676,28 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 
 	res.setSize(1, m.cols * m.rows * m.channels());
 
-	int idx = 0;
 	float* dX1 = res.ptr() + 0 * m.rows * m.cols;
 	float* dX2 = res.ptr() + 1 * m.rows * m.cols;
 	float* dX3 = res.ptr() + 2 * m.rows * m.cols;
 
+#pragma omp parallel for
 	for(int y = 0; y < m.rows; ++y){
 		float *v = m.ptr<float>(y);
-		for(int x = 0; x < m.cols; ++x, ++idx){
-			dX1[idx] = v[x * m.channels() + 0];
-			dX2[idx] = v[x * m.channels() + 1];
-			dX3[idx] = v[x * m.channels() + 2];
+		for(int x = 0; x < m.cols; ++x){
+			int off = y * m.cols + x;
+			dX1[off] = v[x * m.channels() + 0];
+			dX2[off] = v[x * m.channels() + 1];
+			dX3[off] = v[x * m.channels() + 2];
 		}
 	}
 
+//	QDateTime dt = QDateTime::currentDateTime();
+//	QString sdt = dt.toString("yyyy_MM_dd_hh_mm_ss_zzz");
+//	std::string stm = sdt.toStdString();
+
 //	cv::Mat s;
 //	getMat(res, s, cv::Size(W, W));
-//	cv::imwrite("imp.jpg", s);
+//	cv::imwrite(stm + ".jpg", s);
 }
 
 void AnnotationReader::getMat(const ct::Matf &in, cv::Mat &out, const cv::Size sz)
@@ -705,13 +715,13 @@ void AnnotationReader::getMat(const ct::Matf &in, cv::Mat &out, const cv::Size s
 	float* dX2 = in.ptr() + 1 * out.rows * out.cols;
 	float* dX3 = in.ptr() + 2 * out.rows * out.cols;
 
-	int idx = 0;
 	for(int y = 0; y < out.rows; ++y){
 		float *v = out.ptr<float>(y);
-		for(int x = 0; x < out.cols; ++x, ++idx){
-			v[x * out.channels() + 0] = dX1[idx];
-			v[x * out.channels() + 1] = dX2[idx];
-			v[x * out.channels() + 2] = dX3[idx];
+		for(int x = 0; x < out.cols; ++x){
+			int off = y * out.cols + x;
+			v[x * out.channels() + 0] = dX1[off];
+			v[x * out.channels() + 1] = dX2[off];
+			v[x * out.channels() + 2] = dX3[off];
 		}
 	}
 	out.convertTo(out, CV_8UC3, 255.);

@@ -182,7 +182,7 @@ void VocPredict::predicts(std::vector<int> &list)
 	std::vector< ct::Matf > X, y, t;
 	std::vector< std::vector< Obj > > res;
 
-	m_reader->getGroundTruthMat(list, Boxes, X, y);
+	m_reader->getGroundTruthMat(list, Boxes, X, y, true, true);
 
 	forward(X, &t);
 
@@ -209,12 +209,19 @@ void VocPredict::predicts(std::vector<int> &list)
 	predict(t, res);
 
 	for(size_t i = 0; i < res.size(); ++i){
+		ct::Matf &Xi = X[i];
+		cv::Mat im;
+		m_reader->getMat(Xi, im, cv::Size(W, W));
+
 		for(size_t j = 0; j < res[i].size(); ++j){
 			Obj& val = res[i][j];
 			std::cout << val.name << ": [" << val.p << ", (" << val.rect.x << ", "
 					  << val.rect.y << ", " << val.rect.width << ", " << val.rect.height << ")]\n";;
 
+			cv::putText(im, val.name, val.rect.tl(), 1, 1, cv::Scalar(0, 0, 255), 2);
+			cv::rectangle(im, val.rect, cv::Scalar(0, 255, 55), 2);
 		}
+		cv::imwrite("test/image" + std::to_string(i) + ".jpg", im);
 	}
 }
 
