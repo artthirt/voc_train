@@ -685,9 +685,9 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 		}
 	}
 
-	cv::Mat s;
-	getMat(res, s, cv::Size(W, W));
-	cv::imwrite("imp.jpg", s);
+//	cv::Mat s;
+//	getMat(res, s, cv::Size(W, W));
+//	cv::imwrite("imp.jpg", s);
 }
 
 void AnnotationReader::getMat(const ct::Matf &in, cv::Mat &out, const cv::Size sz)
