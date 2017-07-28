@@ -11,7 +11,7 @@ VocPredict::VocPredict()
 	m_passes = 100000;
 	m_batch = 10;
 	m_num_save_pass = 30;
-	m_check_count = 300;
+	m_check_count = 100;
 
 	m_modelSave = "model_voc.bin";
 
@@ -468,10 +468,13 @@ void VocPredict::doPass()
 				loss += get_loss(t);
 
 				k += m_batch;
+
+				printf("test: cur %d, all %d    \r", k, m_check_count);
+				std::cout << std::flush;
 			}
 			loss /= m_check_count;
 			printf("pass=%d, loss=%f    \n", pass, loss);
-			//saveModel(m_modelSave);
+			saveModel(m_modelSave);
 		}
 	}
 
