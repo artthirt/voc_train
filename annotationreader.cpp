@@ -663,7 +663,7 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 	if(!aug){
 		m.convertTo(m, CV_32F, 1./255., 0);
 	}else{
-		std::normal_distribution<float> nd(0, 0.2);
+		std::normal_distribution<float> nd(0, 0.1);
 		float br = nd(m_gt);
 		float cntr = nd(m_gt);
 		m.convertTo(m, CV_32F, (1. + br)/255., cntr);
@@ -676,7 +676,6 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 	float* dX2 = res.ptr() + 1 * m.rows * m.cols;
 	float* dX3 = res.ptr() + 2 * m.rows * m.cols;
 
-#pragma omp parallel for
 	for(int y = 0; y < m.rows; ++y){
 		float *v = m.ptr<float>(y);
 		for(int x = 0; x < m.cols; ++x, ++idx){
@@ -685,6 +684,10 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 			dX3[idx] = v[x * m.channels() + 2];
 		}
 	}
+
+	cv::Mat s;
+	getMat(res, s, cv::Size(W, W));
+	cv::imwrite("imp.jpg", s);
 }
 
 void AnnotationReader::getMat(const ct::Matf &in, cv::Mat &out, const cv::Size sz)
