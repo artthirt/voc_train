@@ -5,6 +5,8 @@
 
 #include "metaconfig.h"
 
+#include <unistd.h>
+
 VocPredict::VocPredict()
 {
 	m_lr = 0.00001;
@@ -476,6 +478,8 @@ void VocPredict::doPass()
 			printf("pass=%d, loss=%f    \n", pass, loss);
 			saveModel(m_modelSave);
 		}
+
+//		usleep(100 * 1000);
 	}
 
 }

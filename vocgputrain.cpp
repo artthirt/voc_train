@@ -41,7 +41,7 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 	m_passes = 100000;
 	m_batch = 5;
 	m_lr = 0.00001;
-	m_num_save_pass = 300;
+	m_num_save_pass = 500;
 
 	m_out_features = 0;
 	for(int i = 0; i < K * K; ++i){
@@ -79,11 +79,11 @@ void VOCGpuTrain::init()
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
 		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
-		cnv.setDropout(0.96);
+		//cnv.setDropout(0.96);
 	}
 	for(size_t i = 0; i < m_mlp.size(); ++i){
 		gpumat::mlp& _mlp = m_mlp[i];
-		_mlp.setDropout(0.93);
+		_mlp.setDropout(0.98);
 	}
 
 	m_optim.init(m_mlp);
@@ -116,7 +116,8 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::Gp
 		if(i == m_mlp.size() - 1)
 			func = LINEAR;
 		mlp& _mlp = m_mlp[i];
-		_mlp.setDropout(dropout);
+		if(i != m_mlp.size() - 1)
+			_mlp.setDropout(dropout);
 		_mlp.forward(pX2, func);
 		pX2 = &_mlp.Y();
 	}

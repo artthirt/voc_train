@@ -493,13 +493,6 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 	Annotation& it = annotations[index];
 
 	if(init_input){
-		if(lambdaBxs.empty()){
-			lambdaBxs.resize(K * K);
-			for(size_t i = 0; i < lambdaBxs.size(); ++i){
-				lambdaBxs[i].setSize(rows, 1);
-				lambdaBxs[i].ptr(row)[0] = (0.5);
-			}
-		}
 
 		if(res.size() != last_confidences + 1)
 			res.resize(last_confidences + 1);
@@ -516,7 +509,18 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		std::for_each(res.begin(), res.end(), [=](ct::Matf& mat){
 			mat.fill(0, row, 1);
 		});
+
+		for(size_t i = 0; i < lambdaBxs.size(); ++i){
+			lambdaBxs[i].setSize(rows, 1);
+			lambdaBxs[i].ptr(row)[0] = (0.5);
+		}
 	}
+
+
+	if(lambdaBxs.empty()){
+		lambdaBxs.resize(K * K);
+	}
+
 
 	if(load_image){
 		if((int)images.size() != rows){
@@ -529,10 +533,13 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 	std::vector< Obj > objs[K * K];
 
+//	cv::Mat im;
+//	getMat(images[row], im, cv::Size(W, W));
+
 	for(size_t i = 0; i < it.objs.size(); ++i){
 		cv::Rect rec = it.objs[i].rect;
 		if(flip){
-			rec.x = it.size.width - rec.x - rec.width;
+			rec.x = it.size.width - rec.x - rec.width - 1;
 		}
 		float dw = (float)rec.width / it.size.width;
 		float dh = (float)rec.height / it.size.height;
@@ -551,7 +558,16 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		objs[off].push_back(ob);
 
 		lambdaBxs[off].ptr(row)[0] = 5.;
+
+//		rec.x = cx * W - dw/2 * W;
+//		rec.y = cy * W - dh/2 * W;
+//		rec.width = dw * W;
+//		rec.height = dh * W;
+
+//		cv::rectangle(im, rec, cv::Scalar(0, 0, 255), 2);
 	}
+
+//	cv::imwrite("images/" + std::to_string(index) + ".jpg", im);
 
 //	for(int i = 0; i < K * K; ++i){
 //		if(objs[i].size())
@@ -566,7 +582,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 			int off = i;
 
 			std::sort(objs[i].begin(), objs[i].end(), [](const Obj& ob1, const Obj& ob2){
-				return ob1.rectf.width * ob1.rectf.height > ob2.rectf.width * ob2.rectf.height;
+				return ob1.rectf.width * ob1.rectf.height < ob2.rectf.width * ob2.rectf.height;
 			});
 
 			int bxid1 = -1, bxid2 = -1, id = 0;
@@ -664,6 +680,7 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 		cv::flip(m, m, 1);
 	}
 
+//	m.convertTo(m, CV_32F, 1./255., 0);
 //	cv::imwrite("ss.bmp", m);
 	if(!aug){
 		m.convertTo(m, CV_32F, 1./255., 0);
@@ -671,7 +688,7 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 		std::normal_distribution<float> nd(0, 0.1);
 		float br = nd(m_gt);
 		float cntr = nd(m_gt);
-		m.convertTo(m, CV_32F, (1. + br)/255., cntr);
+		m.convertTo(m, CV_32F, (0.95 + br)/255., cntr);
 	}
 
 	res.setSize(1, m.cols * m.rows * m.channels());
@@ -680,14 +697,13 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 	float* dX2 = res.ptr() + 1 * m.rows * m.cols;
 	float* dX3 = res.ptr() + 2 * m.rows * m.cols;
 
-#pragma omp parallel for
-	for(int y = 0; y < m.rows; ++y){
+	for(int y = 0, idx = 0; y < m.rows; ++y){
 		float *v = m.ptr<float>(y);
-		for(int x = 0; x < m.cols; ++x){
-			int off = y * m.cols + x;
-			dX1[off] = v[x * m.channels() + 0];
-			dX2[off] = v[x * m.channels() + 1];
-			dX3[off] = v[x * m.channels() + 2];
+		for(int x = 0; x < m.cols; ++x, ++idx){
+			//int off = y * m.cols + x;
+			dX1[idx] = v[x * m.channels() + 0];
+			dX2[idx] = v[x * m.channels() + 1];
+			dX3[idx] = v[x * m.channels() + 2];
 		}
 	}
 
