@@ -539,7 +539,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 	for(size_t i = 0; i < it.objs.size(); ++i){
 		cv::Rect rec = it.objs[i].rect;
 		if(flip){
-			rec.x = it.size.width - rec.x - rec.width - 1;
+			rec.x = it.size.width - rec.x - rec.width;
 		}
 		float dw = (float)rec.width / it.size.width;
 		float dh = (float)rec.height / it.size.height;
@@ -688,7 +688,7 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 		std::normal_distribution<float> nd(0, 0.1);
 		float br = nd(m_gt);
 		float cntr = nd(m_gt);
-		m.convertTo(m, CV_32F, (0.95 + br)/255., cntr);
+		m.convertTo(m, CV_32F, (0.95 + br)/255., 0);
 	}
 
 	res.setSize(1, m.cols * m.rows * m.channels());

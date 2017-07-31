@@ -83,7 +83,7 @@ void VOCGpuTrain::init()
 	}
 	for(size_t i = 0; i < m_mlp.size(); ++i){
 		gpumat::mlp& _mlp = m_mlp[i];
-		_mlp.setDropout(0.98);
+		_mlp.setDropout(0.87);
 	}
 
 	m_optim.init(m_mlp);
@@ -187,7 +187,7 @@ void VOCGpuTrain::predicts(std::vector<int> &list)
 	std::vector< gpumat::GpuMat > X;
 	std::vector< gpumat::GpuMat > y, t;
 
-	m_reader->getGroundTruthMat(list, Boxes, mX, mY);
+	m_reader->getGroundTruthMat(list, Boxes, mX, mY, true);
 	cnv2gpu(mX, X);
 	cnv2gpu(mY, y);
 
@@ -227,7 +227,7 @@ void VOCGpuTrain::predicts(std::vector<int> &list)
 
 			cv::rectangle(im, val.rect, cv::Scalar(0, 0, 255), 2);
 		}
-		cv::imwrite("test/image" + std::to_string(i) + ".jpg", im);
+		cv::imwrite("images/image" + std::to_string(i) + ".jpg", im);
 	}
 }
 
@@ -349,7 +349,7 @@ void VOCGpuTrain::doPass()
 		cnv2gpu(mY, y);
 		cnv2gpu(m_reader->lambdaBxs, m_glambdaBxs);
 
-		forward(X, &t, true);
+		forward(X, &t);
 
 		get_delta(t, y, 1., (i % 100) == 0);
 
