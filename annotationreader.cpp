@@ -516,6 +516,13 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		}
 	}
 
+	int xoff = 0, yoff = 0;
+
+	if(aug){
+		std::normal_distribution<float> nd(0, W * 0.05);
+		xoff = nd(m_gt);
+		yoff = nd(m_gt);
+	}
 
 	if(lambdaBxs.empty()){
 		lambdaBxs.resize(K * K);
@@ -528,16 +535,21 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		}
 		QString path_image = m_vocdir + "/";
 		path_image += path_images + "/" + it.filename.c_str();
-		getImage(path_image.toStdString(), images[row], flip, aug);
+		getImage(path_image.toStdString(), images[row], flip, aug, cv::Point(xoff, yoff));
 	}
 
 	std::vector< Obj > objs[K * K];
 
-//	cv::Mat im;
-//	getMat(images[row], im, cv::Size(W, W));
+#if DEBUG_IMAGE
+	cv::Mat im;
+	getMat(images[row], im, cv::Size(W, W));
+#endif
 
 	for(size_t i = 0; i < it.objs.size(); ++i){
 		cv::Rect rec = it.objs[i].rect;
+		rec.x += (xoff * it.size.width) / W;
+		rec.y += (yoff * it.size.height) / W;
+
 		if(flip){
 			rec.x = it.size.width - rec.x - rec.width;
 		}
@@ -545,6 +557,10 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		float dh = (float)rec.height / it.size.height;
 		float cx = (float)rec.x / it.size.width + dw/2;
 		float cy = (float)rec.y / it.size.height + dh/2;
+		if(cx >= 1)cx = (K - 1)/K;
+		if(cy >= 1)cy = (K - 1)/K;
+		if(cx < 0)cx = 0;
+		if(cy < 0)cy = 0;
 
 		int bx = cx * K;
 		int by = cy * K;
@@ -559,15 +575,19 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 		lambdaBxs[off].ptr(row)[0] = 5.;
 
-//		rec.x = cx * W - dw/2 * W;
-//		rec.y = cy * W - dh/2 * W;
-//		rec.width = dw * W;
-//		rec.height = dh * W;
+#if DEBUG_IMAGE
+		rec.x = cx * W - dw/2 * W;
+		rec.y = cy * W - dh/2 * W;
+		rec.width = dw * W;
+		rec.height = dh * W;
 
-//		cv::rectangle(im, rec, cv::Scalar(0, 0, 255), 2);
+		cv::rectangle(im, rec, cv::Scalar(0, 0, 255), 2);
+#endif
 	}
 
-//	cv::imwrite("images/" + std::to_string(index) + ".jpg", im);
+#if DEBUG_IMAGE
+	cv::imwrite("images/" + std::to_string(index) + ".jpg", im);
+#endif
 
 //	for(int i = 0; i < K * K; ++i){
 //		if(objs[i].size())
@@ -668,13 +688,29 @@ void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
 	}
 }
 
-void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool flip, bool aug)
+void offsetImage(cv::Mat &image, cv::Scalar bordercolour, int xoffset, int yoffset)
+{
+	using namespace cv;
+	float mdata[] = {
+		1, 0, xoffset,
+		0, 1, yoffset
+	};
+
+	Mat M(2, 3, CV_32F, mdata);
+	warpAffine(image, image, M, image.size());
+}
+
+void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool flip, bool aug, const cv::Point &off)
 {
 	cv::Mat m = cv::imread(filename);
 	if(m.empty())
 		return;
 	cv::resize(m, m, cv::Size(W, W));
 //	m = GetSquareImage(m, ImReader::IM_WIDTH);
+
+	if(aug && off.x != 0 && off.y != 0){
+		offsetImage(m, cv::Scalar(0), off.x, off.y);
+	}
 
 	if(flip){
 		cv::flip(m, m, 1);

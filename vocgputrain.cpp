@@ -382,6 +382,9 @@ void VOCGpuTrain::doPass()
 
 				loss += get_loss(t);
 
+				printf("test: cur %d, all %d    \r", k, m_check_count);
+				std::cout << std::flush;
+
 				k += m_batch;
 			}
 			loss /= m_check_count;

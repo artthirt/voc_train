@@ -79,7 +79,7 @@ public:
 	void getGroundTruthMat(std::vector<int> indices, int boxes,
 						   std::vector<ct::Matf> &images, std::vector< ct::Matf >& res, bool flip = false, bool aug = false);
 
-	void getImage(const std::string& filename, ct::Matf& res, bool flip = false, bool aug = false);
+	void getImage(const std::string& filename, ct::Matf& res, bool flip = false, bool aug = false, const cv::Point& off = cv::Point());
 
 	void getMat(const ct::Matf& in, cv::Mat& out, const cv::Size sz);
 
