@@ -1,7 +1,7 @@
 #ifndef METACONFIG_H
 #define METACONFIG_H
 
-const int W = 301;
+const int W = 448;
 const int K = 7;
 const int Classes = 30;
 const int Boxes = 2;
