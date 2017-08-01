@@ -464,18 +464,14 @@ void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, const cv::Re
 
 void AnnotationReader::update_output(std::vector< ct::Matf >& res, Obj& ob, int off, int bxid, int row)
 {
-	const float D = W / K;
 	std::string name = ob.name;
 	int cls = classes[name];
 
-	int bx = ob.rectf.x * K;
-	int by = ob.rectf.y * K;
-
 	float *dB = res[first_boxes + off].ptr(row);
-	dB[bxid * 4 + 0] = (ob.rectf.x * W - bx * D) / D;
-	dB[bxid * 4 + 1] = (ob.rectf.y * W - by * D) / D;
-	dB[bxid * 4 + 2] = ob.rectf.width;
-	dB[bxid * 4 + 3] = ob.rectf.height;
+	dB[bxid * 4 + 0] = (float)ob.rectf.x;
+	dB[bxid * 4 + 1] = (float)ob.rectf.y;
+	dB[bxid * 4 + 2] = (float)ob.rectf.width;
+	dB[bxid * 4 + 3] = (float)ob.rectf.height;
 
 	float *dC = res[first_classes + off].ptr(row);
 	dC[cls] = 1;
@@ -491,6 +487,8 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		throw;
 	}
 	Annotation& it = annotations[index];
+
+	const float D = W / K;
 
 	if(init_input){
 
@@ -569,7 +567,11 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 		Obj ob = it.objs[i];
 		ob.rect = cv::Rect((cx - dw/2) * W, (cy - dh/2) * W, dw * W, dh * W);
-		ob.rectf = cv::Rect2f(cx, cy, sqrtf(std::abs(dw)), sqrtf(std::abs(dh)));
+
+		float ccx = (float)(cx * W - bx * D) / D;
+		float ccy = (float)(cy * W - by * D) / D;
+
+		ob.rectf = cv::Rect2f(ccx, ccy, sqrtf(std::abs(dw)), sqrtf(std::abs(dh)));
 
 		objs[off].push_back(ob);
 
@@ -602,13 +604,13 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 			int off = i;
 
 			std::sort(objs[i].begin(), objs[i].end(), [](const Obj& ob1, const Obj& ob2){
-				return ob1.rectf.width * ob1.rectf.height < ob2.rectf.width * ob2.rectf.height;
+				return ob1.rectf.width * ob1.rectf.height > ob2.rectf.width * ob2.rectf.height;
 			});
 
 			int bxid1 = -1, bxid2 = -1, id = 0;
 			std::for_each(objs[i].begin(), objs[i].end(), [&](const Obj& ob){
 				float ar = ob.rectf.width / ob.rectf.height;
-				if(ar > 1){
+				if(ar >= 1){
 					if(bxid1 < 0){
 						bxid1 = id;
 						update_output(res, objs[off][bxid1], off, 0, row);
