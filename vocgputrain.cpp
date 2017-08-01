@@ -34,7 +34,7 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 		return;
 	}
 
-	m_check_count = 600;
+	m_check_count = 300;
 
 	m_modelSave = "model_voc.bin";
 
@@ -375,6 +375,7 @@ void VOCGpuTrain::doPass()
 				m_reader->getGroundTruthMat(cols, Boxes, mX, mY);
 				cnv2gpu(mX, X);
 				cnv2gpu(mY, y);
+				cnv2gpu(m_reader->lambdaBxs, m_glambdaBxs);
 
 				forward(X, &t);
 
