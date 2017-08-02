@@ -9,8 +9,8 @@ const int Boxes = 2;
 const int cnv_size = 4;
 const int mlp_size = 3;
 
-const int cnv_do_back_layers = 0;
-const int lrs = 4;
+const int cnv_do_back_layers = 2;
+const int lrs = cnv_size - cnv_do_back_layers;
 
 const int first_classes = 0;
 const int last_classes = first_classes + K * K - 1;

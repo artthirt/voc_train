@@ -555,10 +555,8 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		float dh = (float)rec.height / it.size.height;
 		float cx = (float)rec.x / it.size.width + dw/2;
 		float cy = (float)rec.y / it.size.height + dh/2;
-		if(cx >= 1)cx = (K - 1)/K;
-		if(cy >= 1)cy = (K - 1)/K;
-		if(cx < 0)cx = 0;
-		if(cy < 0)cy = 0;
+		if(cx >= 1 || cy >= 1 || cx < 0 ||cy < 0)
+			continue;
 
 		int bx = cx * K;
 		int by = cy * K;

@@ -41,7 +41,7 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 	m_passes = 100000;
 	m_batch = 5;
 	m_lr = 0.00001;
-	m_num_save_pass = 500;
+	m_num_save_pass = 300;
 
 	m_out_features = 0;
 	for(int i = 0; i < K * K; ++i){
@@ -151,9 +151,10 @@ void VOCGpuTrain::backward(std::vector<gpumat::GpuMat> &pY)
 		gpumat::conv2::convnn_gpu& cnvl = m_conv.back();
 		gpumat::conv2::mat2vec(mlp0.DltA0, cnvl.szK, m_delta_cnv);
 		std::vector< gpumat::GpuMat > *pCnv = &m_delta_cnv;
-		for(int i = m_conv.size() - 1; i > lrs; --i){
+		for(int i = m_conv.size() - 1; i >= lrs; --i){
 			gpumat::conv2::convnn_gpu& cnvl = m_conv[i];
-
+			cnvl.backward(*pCnv, i == lrs);
+			pCnv = &cnvl.Dlt;
 		}
 	}
 }
@@ -261,6 +262,11 @@ void VOCGpuTrain::setLerningRate(float lr)
 	m_lr = lr;
 
 	m_optim.setAlpha(lr);
+
+	for(size_t i = 0; i < m_conv.size(); ++i){
+		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
+		cnv.setAlpha(lr);
+	}
 }
 
 int VOCGpuTrain::numSavePass() const
