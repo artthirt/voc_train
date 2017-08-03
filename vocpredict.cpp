@@ -283,6 +283,8 @@ void VocPredict::predicts(std::vector<int> &list)
 
 bool VocPredict::loadModel(const QString &model)
 {
+	return true;
+
 	QString n = QDir::fromNativeSeparators(model);
 
 	std::fstream fs;
@@ -434,6 +436,32 @@ float get_loss(std::vector< ct::Matf >& t)
 	return res1 + res2 + res3;
 }
 
+void save_lambdas(const std::vector<ct::Matf>& lmbd)
+{
+	std::fstream fs;
+	fs.open("test/lmbd.txt", std::ios_base::out);
+	if(!fs.is_open())
+		return;
+	int cnt = lmbd[0].rows;
+	for(int r = 0; r < cnt; ++r){
+		fs << "<<<<<" << r << ">>>>>" << std::endl;
+		for(size_t i = 0; i < lmbd.size(); ++i){
+			int y = i / K;
+			int x = i % K;
+			float *dR = lmbd[i].ptr(r);
+			float R = dR[0];
+			if(R < 1)
+				fs << "---";
+			else
+				fs << " o ";
+			if(x == K - 1)
+				fs << std::endl;
+		}
+		fs << std::endl;
+	}
+	fs.close();
+}
+
 void VocPredict::doPass()
 {
 	if(!m_reader)
@@ -448,6 +476,10 @@ void VocPredict::doPass()
 		cv::randu(list, 0, m_reader->annotations.size() - 1);
 
 		m_reader->getGroundTruthMat(list, Boxes, X, y, true, true);
+
+		save_lambdas(m_reader->lambdaBxs);
+
+		continue;
 
 		forward(X, &t);
 

@@ -13,9 +13,9 @@ const QString path_images("JPEGImages");
 AnnotationReader::AnnotationReader()
 {
 	m_currentAn = 0;
-	m_curObj = 0;
 	m_refSize = 0;
 	m_index = -1;
+	m_index_im = 0;
 }
 
 bool AnnotationReader::setVocFolder(const QString sdir)
@@ -49,9 +49,9 @@ bool AnnotationReader::setVocFolder(const QString sdir)
 		if(load_annotation(path, an)){
 			annotations.push_back(an);
 
-			for(size_t i = 0; i < an.objs.size(); ++i){
-				int k = map[an.objs[i].name];
-				map[an.objs[i].name] = k + 1;
+			for(Obj obj: an.objs){
+				int k = map[obj.name];
+				map[obj.name] = k + 1;
 			}
 			std::cout << "(" << an.size.width << ", " << an.size.height << ")";
 		}
@@ -103,11 +103,17 @@ bool AnnotationReader::load_annotation(const QString &fileName, Annotation& anno
 
 bool AnnotationReader::startElement(const QString &namespaceURI, const QString &localName, const QString &qName, const QXmlAttributes &atts)
 {
-	m_key = qName;
+	m_key = qName.trimmed().toLower();
 	if(m_key == "object"){
 		if(m_currentAn){
 			m_currentAn->objs.push_back(Obj());
-			m_curObj = &m_currentAn->objs.back();
+			m_curObj.push_back(&m_currentAn->objs.back());
+		}
+	}
+	if(m_key == "part"){
+		if(m_currentAn){
+			m_currentAn->objs.push_back(Obj());
+			m_curObj.push_back(&m_currentAn->objs.back());
 		}
 	}
 	if(m_key == "bndbox"){
@@ -122,14 +128,18 @@ bool AnnotationReader::startElement(const QString &namespaceURI, const QString &
 bool AnnotationReader::endElement(const QString &namespaceURI, const QString &localName, const QString &qName)
 {
 	m_key = "";
-	if(qName == "object"){
-		m_curObj = 0;
+	QString Name = qName.trimmed().toLower();
+	if(Name == "object" && !m_curObj.empty()){
+		m_curObj.pop_back();
 	}
-	if(qName == "bndbox" && m_curObj){
-		m_curObj->rect = cv::Rect(m_box.x(), m_box.y(), m_box.w(), m_box.h());
+	if(Name == "part" && !m_curObj.empty()){
+		m_curObj.pop_back();
+	}
+	if(Name == "bndbox" && !m_curObj.empty()){
+		m_curObj.back()->rect = cv::Rect(m_box.x(), m_box.y(), m_box.w(), m_box.h());
 		m_box.clear();
 	}
-	if(qName == "size"){
+	if(Name == "size"){
 		m_refSize = 0;
 	}
 	return true;
@@ -138,13 +148,14 @@ bool AnnotationReader::endElement(const QString &namespaceURI, const QString &lo
 bool AnnotationReader::characters(const QString &ch)
 {
 	if(!m_currentAn)
-		return false;
+		return true;
 
 	if(m_key == "folder"){
 		m_currentAn->folder = ch.toStdString();
 	}
-	if(m_key == "filename")
+	if(m_key == "filename"){
 		m_currentAn->filename = ch.toStdString();
+	}
 
 	if(m_key == "width" && m_refSize){
 		m_refSize->width = ch.toInt();
@@ -153,21 +164,22 @@ bool AnnotationReader::characters(const QString &ch)
 		m_refSize->height = ch.toInt();
 	}
 
-	if(m_curObj){
+	if(!m_curObj.empty()){
+
 		if(m_key == "name"){
-			m_curObj->name = ch.toStdString();
+			m_curObj.back()->name = ch.toStdString();
 		}
 		if(m_key == "xmin"){
-			m_box.xmin = ch.toInt();
+			m_box.xmin = ch.toFloat();
 		}
 		if(m_key == "xmax"){
-			m_box.xmax = ch.toInt();
+			m_box.xmax = ch.toFloat();
 		}
 		if(m_key == "ymin"){
-			m_box.ymin = ch.toInt();
+			m_box.ymin = ch.toFloat();
 		}
 		if(m_key == "ymax"){
-			m_box.ymax = ch.toInt();
+			m_box.ymax = ch.toFloat();
 		}
 	}
 
@@ -286,15 +298,16 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 
 	int D = W / K;
 
-	for(size_t i = 0; i < it.objs.size(); ++i){
-		cv::Rect rec = it.objs[i].rect;
+	int id = 0;
+	for(Obj obj: it.objs){
+		cv::Rect rec = obj.rect;
 		if(flip){
 			rec.x = out.cols - rec.x - rec.width;
 		}
 		cv::rectangle(out, rec, cv::Scalar(0, 0, 255), 1);
 
 		std::stringstream ss;
-		ss << i << " " << it.objs[i].name;
+		ss << id << " " << obj.name;
 		cv::putText(out, ss.str(), rec.tl(), 1, 1, cv::Scalar(0, 0, 255), 1);
 
 		float dw = (float)rec.width / it.size.width;
@@ -308,6 +321,8 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 
 		QString str = QString("(%1, %2), (%3, %4)").arg(cx).arg(cy).arg(dw).arg(dh);
 		cv::putText(out2, str.toStdString(), rec.tl(), 1, 1, cv::Scalar(0));
+
+		id++;
 	}
 
 //	for(size_t i = 0; i < it.objs.size(); ++i){
@@ -543,8 +558,8 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 	getMat(images[row], im, cv::Size(W, W));
 #endif
 
-	for(size_t i = 0; i < it.objs.size(); ++i){
-		cv::Rect rec = it.objs[i].rect;
+	for(Obj obj: it.objs){
+		cv::Rect rec = obj.rect;
 		rec.x += (xoff * it.size.width) / W;
 		rec.y += (yoff * it.size.height) / W;
 
@@ -563,7 +578,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 		int off = by * K + bx;
 
-		Obj ob = it.objs[i];
+		Obj ob = obj;
 		ob.rect = cv::Rect((cx - dw/2) * W, (cy - dh/2) * W, dw * W, dh * W);
 
 		float ccx = (float)(cx * W - bx * D) / D;
@@ -576,17 +591,19 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		lambdaBxs[off].ptr(row)[0] = 10.;
 
 #if DEBUG_IMAGE
-		rec.x = cx * W - dw/2 * W;
-		rec.y = cy * W - dh/2 * W;
-		rec.width = dw * W;
-		rec.height = dh * W;
+		{
+			rec.width = dw * W;
+			rec.height = dh * W;
+			rec.x = ccx * D + bx * D - rec.width/2;
+			rec.y = ccy * D + by * D - rec.height/2;
 
-		cv::rectangle(im, rec, cv::Scalar(0, 0, 255), 2);
+			cv::rectangle(im, rec, cv::Scalar(0, 0, 255), 2);
+		}
 #endif
 	}
 
 #if DEBUG_IMAGE
-	cv::imwrite("images/" + std::to_string(index) + ".jpg", im);
+	cv::imwrite("images/" + std::to_string(m_index_im) + ".jpg", im);
 #endif
 
 //	for(int i = 0; i < K * K; ++i){
@@ -683,7 +700,8 @@ void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
 
 	lambdaBxs.resize(K * K);
 
-	for(size_t i = 0; i < indices.size(); ++i){
+	m_index_im = 0;
+	for(size_t i = 0; i < indices.size(); ++i, ++m_index_im){
 		getGroundTruthMat(indices[i], boxes, images, res, i, rows, flips[i], true, aug, false);
 	}
 }
@@ -708,7 +726,7 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 	cv::resize(m, m, cv::Size(W, W));
 //	m = GetSquareImage(m, ImReader::IM_WIDTH);
 
-	if(aug && off.x != 0 && off.y != 0){
+	if(aug && (off.x != 0 || off.y != 0)){
 		offsetImage(m, cv::Scalar(0), off.x, off.y);
 	}
 

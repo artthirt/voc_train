@@ -244,8 +244,7 @@ int main(int argc, char *argv[])
 		Annotation an = reader.getGroundTruthMat(25, 2, im, r);
 
 		printf("<<<< filename %s >>>>\n", an.filename.c_str());
-		for(size_t i = 0; i < an.objs.size(); ++i){
-			Obj &obj = an.objs[i];
+		for(Obj obj: an.objs){
 			printf("obj %s\t x=%d, y=%d, w=%d, h=%d\n", obj.name.c_str(), obj.rect.x, obj.rect.y,
 				   obj.rect.width, obj.rect.height);
 		}

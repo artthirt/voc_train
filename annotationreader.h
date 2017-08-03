@@ -55,7 +55,7 @@ struct BndBox{
 struct Annotation{
 	std::string folder;
 	std::string filename;
-	std::vector< Obj > objs;
+	std::list< Obj > objs;
 	cv::Size size;
 };
 
@@ -90,12 +90,13 @@ private:
 	QString m_key;
 	QString m_value;
 	Annotation* m_currentAn;
-	Obj* m_curObj;
+	std::list< Obj* > m_curObj;
 	BndBox m_box;
 	cv::Size* m_refSize;
 	cv::Mat m_sample;
 	int m_index;
 	std::mutex m_mutex;
+	int m_index_im;
 
 	std::mt19937 m_gt;
 
