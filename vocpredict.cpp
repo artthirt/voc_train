@@ -283,7 +283,7 @@ void VocPredict::predicts(std::vector<int> &list)
 
 bool VocPredict::loadModel(const QString &model)
 {
-	return true;
+//	return true;
 
 	QString n = QDir::fromNativeSeparators(model);
 
@@ -477,9 +477,9 @@ void VocPredict::doPass()
 
 		m_reader->getGroundTruthMat(list, Boxes, X, y, true, true);
 
-		save_lambdas(m_reader->lambdaBxs);
+//		save_lambdas(m_reader->lambdaBxs);
 
-		continue;
+//		continue;
 
 		forward(X, &t);
 
