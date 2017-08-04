@@ -48,7 +48,7 @@ private:
 	int m_check_count;
 	QString m_modelSave;
 
-	ct::MlpOptim_mixed m_optim;
+	ct::MlpOptimMixed m_optim;
 
 	std::vector< conv2::convnn2_mixed > m_conv;
 	std::vector< ct::mlp_mixed > m_mlp;
