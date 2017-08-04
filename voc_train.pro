@@ -27,9 +27,9 @@ win32{
     QMAKE_CXXFLAGS += /openmp
 
     CONFIG(debug, debug | release){
-        LIBS += -lopencv_core320d -lopencv_highgui320d -lopencv_imgproc320d -lopencv_imgcodecs320d -lopencv_videoio320d
+        LIBS += -lopencv_core330d -lopencv_highgui330d -lopencv_imgproc330d -lopencv_imgcodecs330d -lopencv_videoio330d
     }else{
-        LIBS += -lopencv_core320 -lopencv_highgui320 -lopencv_imgproc320 -lopencv_imgcodecs320 -lopencv_videoio320
+        LIBS += -lopencv_core330 -lopencv_highgui330 -lopencv_imgproc330 -lopencv_imgcodecs330 -lopencv_videoio330
     }
 }else{
     QMAKE_CXXFLAGS += -fopenmp

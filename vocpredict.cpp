@@ -90,7 +90,7 @@ void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<ct::Matf> *pY)
 	std::vector< Matf > *pX = &X;
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
-		conv2::convnnf& cnv = m_conv[i];
+		conv2::convnn2_mixed& cnv = m_conv[i];
 		cnv.forward(pX, RELU);
 		pX = &cnv.XOut();
 	}
@@ -104,7 +104,7 @@ void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<ct::Matf> *pY)
 	for(size_t i = 0; i < m_mlp.size(); ++i){
 		if(i == m_mlp.size() - 1)
 			func = LINEAR;
-		mlpf& _mlp = m_mlp[i];
+		mlp_mixed& _mlp = m_mlp[i];
 		_mlp.forward(pX2, func);
 		pX2 = &_mlp.Y();
 	}
@@ -125,19 +125,19 @@ void VocPredict::backward(std::vector<ct::Matf> &pY)
 
 	ct::Matf *pD = &m_D;
 	for(int i = m_mlp.size() - 1; i > -1; i--){
-		ct::mlpf& mlp = m_mlp[i];
+		ct::mlp_mixed& mlp = m_mlp[i];
 		mlp.backward(*pD, i == 0 && cnv_do_back_layers == 0);
 		pD = &mlp.DltA0;
 	}
 	m_optim.pass(m_mlp);
 
 	if(cnv_do_back_layers > 0){
-		ct::mlpf& mlp0 = m_mlp.front();
-		conv2::convnnf& cnvl = m_conv.back();
+		ct::mlp_mixed& mlp0 = m_mlp.front();
+		conv2::convnn2_mixed& cnvl = m_conv.back();
 		conv2::mat2vec(mlp0.DltA0, cnvl.szK, m_delta_cnv);
 		std::vector< ct::Matf > *pCnv = &m_delta_cnv;
 		for(int i = m_conv.size() - 1; i > lrs; --i){
-			conv2::convnnf& cnvl = m_conv[i];
+			conv2::convnn2_mixed& cnvl = m_conv[i];
 			pCnv = &cnvl.Dlt;
 		}
 	}
@@ -320,7 +320,7 @@ bool VocPredict::loadModel(const QString &model)
 
 	printf("conv\n");
 	for(int i = 0; i < cnvs; ++i){
-		conv2::convnnf &cnv = m_conv[i];
+		conv2::convnn2_mixed &cnv = m_conv[i];
 		cnv.read2(fs);
 		printf("layer %d: rows %d, cols %d\n", i, cnv.W[0].rows, cnv.W[0].cols);
 	}
@@ -328,7 +328,7 @@ bool VocPredict::loadModel(const QString &model)
 	m_mlp.resize(mlps);
 	printf("mlp\n");
 	for(size_t i = 0; i < m_mlp.size(); ++i){
-		ct::mlpf &mlp = m_mlp[i];
+		ct::mlp_mixed &mlp = m_mlp[i];
 		mlp.read2(fs);
 		printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
 	}
@@ -362,12 +362,12 @@ void VocPredict::saveModel(const QString &name)
 	fs.write((char*)&mlps, sizeof(mlps));
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
-		conv2::convnnf &cnv = m_conv[i];
+		conv2::convnn2_mixed &cnv = m_conv[i];
 		cnv.write2(fs);
 	}
 
 	for(size_t i = 0; i < m_mlp.size(); ++i){
-		ct::mlpf& mlp = m_mlp[i];
+		ct::mlp_mixed& mlp = m_mlp[i];
 		mlp.write2(fs);
 	}
 

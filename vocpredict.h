@@ -3,6 +3,8 @@
 
 #include "custom_types.h"
 #include "convnn2.h"
+#include "convnn2_mixed.h"
+#include "mlp_mixed.h"
 #include "mlp.h"
 #include "matops.h"
 
@@ -46,10 +48,10 @@ private:
 	int m_check_count;
 	QString m_modelSave;
 
-	ct::MlpOptim<float> m_optim;
+	ct::MlpOptim_mixed m_optim;
 
-	std::vector< conv2::convnnf > m_conv;
-	std::vector< ct::mlpf > m_mlp;
+	std::vector< conv2::convnn2_mixed > m_conv;
+	std::vector< ct::mlp_mixed > m_mlp;
 	ct::Matf m_vec2mat;
 	ct::Matf m_D;
 	std::vector< ct::Matf > m_delta_cnv;
