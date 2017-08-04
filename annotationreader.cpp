@@ -588,7 +588,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 		objs[off].push_back(ob);
 
-		lambdaBxs[off].ptr(row)[0] = 10.;
+		lambdaBxs[off].ptr(row)[0] = 5.;
 
 #if DEBUG_IMAGE
 		{
