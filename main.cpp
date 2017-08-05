@@ -204,10 +204,6 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	voc.setPasses(passes);
-	voc.setBatch(batch);
-	voc.setLerningRate(lr);
-
 	int id = 25;
 	int cnt = 0;
 
@@ -296,10 +292,6 @@ int main(int argc, char *argv[])
 		VocPredict vp;
 		vp.setReader(&reader);
 
-		vp.setPasses(passes);
-		vp.setBatch(batch);
-		vp.setLr(lr);
-
 		bool model_voc_loaded = false;
 		if(contain(res, "load_voc")){
 			std::string fn = res["load_voc"];
@@ -314,6 +306,9 @@ int main(int argc, char *argv[])
 		}
 
 		vp.setSeed(seed);
+		vp.setPasses(passes);
+		vp.setBatch(batch);
+		vp.setLr(lr);
 
 		printf("learning rate %f\n", lr);
 		printf("passes %d\n", passes);
@@ -340,6 +335,9 @@ int main(int argc, char *argv[])
 		}
 
 		voc.setSeed(seed);
+		voc.setPasses(passes);
+		voc.setBatch(batch);
+		voc.setLerningRate(lr);
 
 		printf("learning rate %f\n", lr);
 		printf("passes %d\n", passes);
