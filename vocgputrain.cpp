@@ -34,7 +34,7 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 		return;
 	}
 
-	m_check_count = 300;
+	m_check_count = 500;
 
 	m_modelSave = "model_voc.bin";
 
@@ -376,6 +376,7 @@ void VOCGpuTrain::doPass()
 		if((i % m_num_save_pass) == 0 && i > 0 || i == 30){
 			int k = 0;
 			float loss = 0;
+			int cnt = 0;
 			while( k < m_check_count){
 				cv::randu(cols, 0, m_reader->annotations.size() - 1);
 				m_reader->getGroundTruthMat(cols, Boxes, mX, mY);
@@ -393,8 +394,9 @@ void VOCGpuTrain::doPass()
 				std::cout << std::flush;
 
 				k += m_batch;
+				cnt++;
 			}
-			loss /= m_check_count;
+			loss /= cnt;
 			printf("pass=%d, loss=%f    \n", i, loss);
 			saveModel(m_modelSave);
 		}

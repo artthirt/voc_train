@@ -493,6 +493,7 @@ void VocPredict::doPass()
 		if((pass % m_num_save_pass) == 0 && pass > 0 || pass == 30){
 			int k = 0;
 			float loss = 0;
+			int cnt = 0;
 			while( k < m_check_count){
 				cv::randu(list, 0, m_reader->annotations.size() - 1);
 				m_reader->getGroundTruthMat(list, Boxes, X, y);
@@ -504,11 +505,12 @@ void VocPredict::doPass()
 				loss += get_loss(t);
 
 				k += m_batch;
+				cnt++;
 
 				printf("test: cur %d, all %d    \r", k, m_check_count);
 				std::cout << std::flush;
 			}
-			loss /= m_check_count;
+			loss /= cnt;
 			printf("pass=%d, loss=%f    \n", pass, loss);
 			saveModel(m_modelSave);
 		}
