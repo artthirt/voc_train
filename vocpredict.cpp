@@ -60,16 +60,16 @@ void VocPredict::init()
 	m_conv[0].init(ct::Size(W, W), 3, 4, 64, ct::Size(7, 7), true, false);
 	m_conv[1].init(m_conv[0].szOut(), 64, 1, 256, ct::Size(5, 5), true);
 	m_conv[2].init(m_conv[1].szOut(), 256, 1, 512, ct::Size(3, 3), true);
-	m_conv[3].init(m_conv[2].szOut(), 512, 1, 1024, ct::Size(3, 3), false);
-	m_conv[4].init(m_conv[3].szOut(), 1024, 1, 512, ct::Size(3, 3), false);
+	m_conv[3].init(m_conv[2].szOut(), 512, 1, 1024, ct::Size(3, 3), true);
+//	m_conv[4].init(m_conv[3].szOut(), 1024, 1, 512, ct::Size(3, 3), false);
 
 	int outFeatures = m_conv.back().outputFeatures();
 
 	m_mlp.resize(mlp_size);
 
-	m_mlp[0].init(outFeatures, 2048);
-	m_mlp[1].init(2048, 2048);
-	m_mlp[2].init(2048, m_out_features);
+	m_mlp[0].init(outFeatures, 4096);
+//	m_mlp[1].init(2048, 2048);
+	m_mlp[1].init(4096, m_out_features);
 
 	m_optim.init(m_mlp);
 	m_optim.setAlpha(m_lr);
@@ -281,7 +281,7 @@ void VocPredict::predicts(std::vector<int> &list)
 	}
 }
 
-bool VocPredict::loadModel(const QString &model)
+bool VocPredict::loadModel(const QString &model, bool load_mlp)
 {
 //	return true;
 
@@ -325,12 +325,14 @@ bool VocPredict::loadModel(const QString &model)
 		printf("layer %d: rows %d, cols %d\n", i, cnv.W[0].rows, cnv.W[0].cols);
 	}
 
-	m_mlp.resize(mlps);
-	printf("mlp\n");
-	for(size_t i = 0; i < m_mlp.size(); ++i){
-		ct::mlp_mixed &mlp = m_mlp[i];
-		mlp.read2(fs);
-		printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+	if(load_mlp){
+		m_mlp.resize(mlps);
+		printf("mlp\n");
+		for(size_t i = 0; i < m_mlp.size(); ++i){
+			ct::mlp_mixed &mlp = m_mlp[i];
+			mlp.read2(fs);
+			printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+		}
 	}
 
 	printf("model loaded.\n");

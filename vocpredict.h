@@ -30,7 +30,7 @@ public:
 	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res);
 	void predicts(std::vector< int > & list);
 
-	bool loadModel(const QString& model);
+	bool loadModel(const QString& model, bool load_mlp = true);
 	void saveModel(const QString &name);
 	void setModelSaveName(const QString& name);
 	void setSeed(int seed);

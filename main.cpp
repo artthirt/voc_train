@@ -300,6 +300,10 @@ int main(int argc, char *argv[])
 				printf("<<<< model for VOC loaded >>>>\n");
 			}
 		}
+		if(contain(res, "load_pretrain") && !model_voc_loaded){
+			std::string fn = res["load_pretrain"];
+			vp.loadModel(fn.c_str(), false);
+		}
 		if(contain(res, "save")){
 			std::string fn = res["save"];
 			vp.setModelSaveName(fn.c_str());
