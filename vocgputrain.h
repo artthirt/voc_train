@@ -81,7 +81,7 @@ private:
 
 	//////////
 
-	void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, double lambda = 1., bool test = false);
+	void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, bool test = false);
 };
 
 #endif // VOCGPUTRAIN_H

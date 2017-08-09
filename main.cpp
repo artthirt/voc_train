@@ -303,6 +303,7 @@ int main(int argc, char *argv[])
 		if(contain(res, "load_pretrain") && !model_voc_loaded){
 			std::string fn = res["load_pretrain"];
 			vp.loadModel(fn.c_str(), false);
+			printf("<<<< pretrained model loaded >>>>\n");
 		}
 		if(contain(res, "save")){
 			std::string fn = res["save"];

@@ -28,7 +28,8 @@ public:
 	void forward(std::vector< ct::Matf >& X, std::vector< ct::Matf >* pY);
 	void backward(std::vector< ct::Matf >& pY);
 	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res);
-	void predicts(std::vector< int > & list);
+	void predicts(std::vector< int > & list, bool show = false);
+	void test_predict();
 
 	bool loadModel(const QString& model, bool load_mlp = true);
 	void saveModel(const QString &name);
@@ -47,11 +48,13 @@ private:
 	int m_num_save_pass;
 	int m_check_count;
 	QString m_modelSave;
+	bool m_internal_1;
 
 	ct::MlpOptimMixed m_optim;
 
 	std::vector< conv2::convnn2_mixed > m_conv;
 	std::vector< ct::mlp_mixed > m_mlp;
+	std::vector< conv2::MomentOptimizerMixed > m_moment_optim;
 	ct::Matf m_vec2mat;
 	ct::Matf m_D;
 	std::vector< ct::Matf > m_delta_cnv;

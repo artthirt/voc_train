@@ -16,6 +16,7 @@ VocPredict::VocPredict()
 	m_batch = 10;
 	m_num_save_pass = 100;
 	m_check_count = 100;
+	m_internal_1 = false;
 
 	m_modelSave = "model_voc.bin";
 
@@ -56,6 +57,13 @@ void VocPredict::setLr(float lr)
 void VocPredict::init()
 {
 	m_conv.resize(cnv_size);
+
+	m_moment_optim.resize(cnv_size);
+
+	for(size_t i = 0; i < m_moment_optim.size(); ++i){
+		conv2::convnn2_mixed& cnv = m_conv[i];
+		cnv.setOptimizer(&m_moment_optim[i]);
+	}
 
 	m_conv[0].init(ct::Size(W, W), 3, 4, 64, ct::Size(7, 7), true, false);
 	m_conv[1].init(m_conv[0].szOut(), 64, 1, 256, ct::Size(5, 5), true);
@@ -138,6 +146,7 @@ void VocPredict::backward(std::vector<ct::Matf> &pY)
 		std::vector< ct::Matf > *pCnv = &m_delta_cnv;
 		for(int i = m_conv.size() - 1; i > lrs; --i){
 			conv2::convnn2_mixed& cnvl = m_conv[i];
+			cnvl.backward(*pCnv, i == lrs);
 			pCnv = &cnvl.Dlt;
 		}
 	}
@@ -230,7 +239,7 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 	}
 }
 
-void VocPredict::predicts(std::vector<int> &list)
+void VocPredict::predicts(std::vector<int> &list, bool show)
 {
 	if(!m_reader || list.empty())
 		return;
@@ -238,7 +247,7 @@ void VocPredict::predicts(std::vector<int> &list)
 	std::vector< ct::Matf > X, y, t;
 	std::vector< std::vector< Obj > > res;
 
-	m_reader->getGroundTruthMat(list, Boxes, X, y, true, true);
+	m_reader->getGroundTruthMat(list, Boxes, X, y);
 
 	forward(X, &t);
 
@@ -264,6 +273,15 @@ void VocPredict::predicts(std::vector<int> &list)
 
 	predict(t, res);
 
+	cv::Mat tmp;
+	if(show){
+		if(!m_internal_1){
+			m_internal_1 = true;
+			cv::namedWindow("win", cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+			cv::resizeWindow("win", W * list.size(), W);
+		}
+	}
+
 	for(size_t i = 0; i < res.size(); ++i){
 		ct::Matf &Xi = X[i];
 		cv::Mat im;
@@ -271,14 +289,40 @@ void VocPredict::predicts(std::vector<int> &list)
 
 		for(size_t j = 0; j < res[i].size(); ++j){
 			Obj& val = res[i][j];
-			std::cout << val.name << ": [" << val.p << ", (" << val.rect.x << ", "
-					  << val.rect.y << ", " << val.rect.width << ", " << val.rect.height << ")]\n";;
+			if(!show){
+				std::cout << val.name << ": [" << val.p << ", (" << val.rect.x << ", "
+						  << val.rect.y << ", " << val.rect.width << ", " << val.rect.height << ")]\n";;
+			}
 
-			cv::putText(im, val.name, val.rect.tl(), 1, 1, cv::Scalar(0, 0, 255), 2);
-			cv::rectangle(im, val.rect, cv::Scalar(0, 255, 55), 2);
+			cv::putText(im, val.name + " p[" + std::to_string(val.p) + "]", val.rect.tl(), 1, 1, cv::Scalar(0, 255, 0), 2);
+			cv::rectangle(im, val.rect, cv::Scalar(0, 0, 255), 2);
 		}
-		cv::imwrite("test/image" + std::to_string(i) + ".jpg", im);
+
+		if(!show){
+			cv::imwrite("images/image" + std::to_string(i) + ".jpg", im);
+		}else{
+			if(tmp.empty())
+				im.copyTo(tmp);
+			else
+				cv::hconcat(tmp, im, tmp);
+		}
 	}
+	if(show){
+		cv::imshow("win", tmp);
+	}
+}
+
+void VocPredict::test_predict()
+{
+	std::vector<int> list;
+
+	list.push_back(25);
+	list.push_back(26);
+	list.push_back(125);
+	list.push_back(101);
+	list.push_back(325);
+
+	predicts(list, true);
 }
 
 bool VocPredict::loadModel(const QString &model, bool load_mlp)
@@ -472,16 +516,12 @@ void VocPredict::doPass()
 	std::vector< ct::Matf > X, y, t;
 	std::vector< int > list;
 	list.resize(m_batch);
-
 	for(int pass = 0; pass < m_passes; ++pass){
-
 		cv::randu(list, 0, m_reader->annotations.size() - 1);
-
 		m_reader->getGroundTruthMat(list, Boxes, X, y, true, true);
 
-//		save_lambdas(m_reader->lambdaBxs);
 
-//		continue;
+
 
 		forward(X, &t);
 
@@ -500,6 +540,9 @@ void VocPredict::doPass()
 				cv::randu(list, 0, m_reader->annotations.size() - 1);
 				m_reader->getGroundTruthMat(list, Boxes, X, y);
 
+
+
+
 				forward(X, &t);
 
 				get_delta(t, y);
@@ -514,10 +557,12 @@ void VocPredict::doPass()
 			}
 			loss /= cnt;
 			printf("pass=%d, loss=%f    \n", pass, loss);
-			saveModel(m_modelSave);
+			//saveModel(m_modelSave);
 		}
-
-//		usleep(100 * 1000);
+		if((pass % 4) == 0){
+			test_predict();
+		}
+		cv::waitKey(10);
 	}
 
 }

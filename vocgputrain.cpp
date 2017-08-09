@@ -325,7 +325,7 @@ void VOCGpuTrain::setSeed(int seed)
 	cv::setRNGSeed(seed);
 }
 
-void VOCGpuTrain::get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, double lambda, bool test)
+void VOCGpuTrain::get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, bool test)
 {
 	for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
 		if(test){
@@ -387,40 +387,31 @@ void VOCGpuTrain::doPass()
 
 	std::vector< gpumat::GpuMat > X;
 	std::vector< gpumat::GpuMat > y, t;
-	std::vector< int > cols;
-	cols.resize(m_batch);
-	for(int i = 0; i < m_passes; ++i){
-		cv::randu(cols, 0, m_reader->annotations.size() - 1);
-		m_reader->getGroundTruthMat(cols, Boxes, mX, mY, true, true);
+	std::vector< int > list;
+	list.resize(m_batch);
+	for(int pass = 0; pass < m_passes; ++pass){
+		cv::randu(list, 0, m_reader->annotations.size() - 1);
+		m_reader->getGroundTruthMat(list, Boxes, mX, mY, true, true);
 		cnv2gpu(mX, X);
 		cnv2gpu(mY, y);
 		cnv2gpu(m_reader->lambdaBxs, m_glambdaBxs);
 
 		forward(X, &t);
 
-		get_delta(t, y, 1., (i % 100) == 0);
+		get_delta(t, y, (pass % 100) == 0);
 
 		backward(t);
 
-//		gpumat::convert_to_mat(m_mlp.back().W, m2);
-//		s = m2 - m1;
-//		ct::v_elemwiseSqr(s);
-//		float fs = s.sum();
-
-//		gpumat::convert_to_mat(t[0], m1);
-//		ct::v_elemwiseSqr(m1);
-//		float s2 = m1.sum();
-
-		printf("pass=%d    \r", i);
+		printf("pass=%d    \r", pass);
 		std::cout << std::flush;
 
-		if((i % m_num_save_pass) == 0 && i > 0 || i == 30){
+		if((pass % m_num_save_pass) == 0 && pass > 0 || pass == 30){
 			int k = 0;
 			float loss = 0;
 			int cnt = 0;
 			while( k < m_check_count){
-				cv::randu(cols, 0, m_reader->annotations.size() - 1);
-				m_reader->getGroundTruthMat(cols, Boxes, mX, mY);
+				cv::randu(list, 0, m_reader->annotations.size() - 1);
+				m_reader->getGroundTruthMat(list, Boxes, mX, mY);
 				cnv2gpu(mX, X);
 				cnv2gpu(mY, y);
 				cnv2gpu(m_reader->lambdaBxs, m_glambdaBxs);
@@ -431,14 +422,14 @@ void VOCGpuTrain::doPass()
 
 				loss += get_loss(t);
 
-				printf("test: cur %d, all %d    \r", k, m_check_count);
-				std::cout << std::flush;
-
 				k += m_batch;
 				cnt++;
+
+				printf("test: cur %d, all %d    \r", k, m_check_count);
+				std::cout << std::flush;
 			}
 			loss /= cnt;
-			printf("pass=%d, loss=%f    \n", i, loss);
+			printf("pass=%d, loss=%f    \n", pass, loss);
 			saveModel(m_modelSave);
 
 			test_predict();
