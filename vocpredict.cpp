@@ -557,7 +557,7 @@ void VocPredict::doPass()
 			}
 			loss /= cnt;
 			printf("pass=%d, loss=%f    \n", pass, loss);
-			//saveModel(m_modelSave);
+			saveModel(m_modelSave);
 		}
 		if((pass % 4) == 0){
 			test_predict();
