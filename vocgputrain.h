@@ -31,7 +31,9 @@ public:
 
 	void predict(std::vector< gpumat::GpuMat >& pY, std::vector< std::vector<Obj> >& res);
 	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res);
-	void predicts(std::vector< int > & list);
+	std::vector<std::vector<Obj> > predicts(std::vector< int > & list, bool show = false);
+
+	void test_predict();
 
 	int passes() const;
 	void setPasses(int passes);
@@ -63,6 +65,8 @@ private:
 	int m_check_count;
 
 	QString m_modelSave;
+
+	bool m_internal_1;
 
 	std::vector< gpumat::conv2::convnn_gpu > m_conv;
 	std::vector< gpumat::mlp > m_mlp;

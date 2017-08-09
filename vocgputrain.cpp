@@ -34,6 +34,8 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 		return;
 	}
 
+	m_internal_1 = false;
+
 	m_check_count = 500;
 
 	m_modelSave = "model_voc.bin";
@@ -179,25 +181,25 @@ void VOCGpuTrain::predict(std::vector<ct::Matf> &pY, std::vector< std::vector<Ob
 	predictor.predict(pY, res);
 }
 
-void VOCGpuTrain::predicts(std::vector<int> &list)
+std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, bool show)
 {
+	std::vector< std::vector< Obj > > res;
 	if(!m_reader || list.empty())
-		return;
+		return res;
 
 	std::vector< ct::Matf > mX, mY;
-	std::vector< std::vector< Obj > > res;
 
 	std::vector< gpumat::GpuMat > X;
 	std::vector< gpumat::GpuMat > y, t;
 
-	m_reader->getGroundTruthMat(list, Boxes, mX, mY, true);
+	m_reader->getGroundTruthMat(list, Boxes, mX, mY);
 	cnv2gpu(mX, X);
 	cnv2gpu(mY, y);
 
 	forward(X, &t);
 
 	if(t.empty())
-		return;
+		return res;
 
 	QDir dir;
 	if(!dir.exists("test"))
@@ -218,6 +220,14 @@ void VOCGpuTrain::predicts(std::vector<int> &list)
 
 	predict(t, res);
 
+	cv::Mat tmp;
+	if(show){
+		if(!m_internal_1){
+			m_internal_1 = true;
+			cv::namedWindow("win", cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+		}
+	}
+
 	for(size_t i = 0; i < res.size(); ++i){
 		ct::Matf &Xi = mX[i];
 		cv::Mat im;
@@ -225,13 +235,42 @@ void VOCGpuTrain::predicts(std::vector<int> &list)
 
 		for(size_t j = 0; j < res[i].size(); ++j){
 			Obj& val = res[i][j];
-			std::cout << val.name << ": [" << val.p << ", (" << val.rect.x << ", "
-					  << val.rect.y << ", " << val.rect.width << ", " << val.rect.height << ")]\n";;
+			if(!show){
+				std::cout << val.name << ": [" << val.p << ", (" << val.rect.x << ", "
+						  << val.rect.y << ", " << val.rect.width << ", " << val.rect.height << ")]\n";;
+			}
 
+			cv::putText(im, val.name, val.rect.tl(), 1, 1, cv::Scalar(0, 255, 0), 2);
 			cv::rectangle(im, val.rect, cv::Scalar(0, 0, 255), 2);
 		}
-		cv::imwrite("images/image" + std::to_string(i) + ".jpg", im);
+
+		if(!show){
+			cv::imwrite("images/image" + std::to_string(i) + ".jpg", im);
+		}else{
+			if(tmp.empty())
+				im.copyTo(tmp);
+			else
+				cv::hconcat(tmp, im, tmp);
+		}
 	}
+	if(show){
+		cv::imshow("win", tmp);
+	}
+
+	return res;
+}
+
+void VOCGpuTrain::test_predict()
+{
+	std::vector<int> list;
+
+	list.push_back(25);
+	list.push_back(26);
+	list.push_back(125);
+	list.push_back(101);
+	list.push_back(325);
+
+	predicts(list, true);
 }
 
 int VOCGpuTrain::passes() const
@@ -401,7 +440,10 @@ void VOCGpuTrain::doPass()
 			loss /= cnt;
 			printf("pass=%d, loss=%f    \n", i, loss);
 			saveModel(m_modelSave);
+
+			test_predict();
 		}
+		cv::waitKey(1);
 	}
 }
 
