@@ -65,14 +65,14 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 void VOCGpuTrain::init()
 {
 	m_conv.resize(cnv_size);
-	m_mnt_optim.resize(cnv_size);
+//	m_mnt_optim.resize(cnv_size);
 
-	for(size_t i = 0; i < m_conv.size(); ++i){
-		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
-		m_mnt_optim[i].setAlpha(m_lr);
-		m_mnt_optim[i].setBetha(0.98);
-		cnv.setOptimizer(&m_mnt_optim[i]);
-	}
+//	for(size_t i = 0; i < m_conv.size(); ++i){
+//		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
+//		m_mnt_optim[i].setAlpha(m_lr);
+//		m_mnt_optim[i].setBetha(0.98);
+//		cnv.setOptimizer(&m_mnt_optim[i]);
+//	}
 
 	m_conv[0].init(ct::Size(W, W), 3, 4, 64, ct::Size(7, 7), true, false);
 	m_conv[1].init(m_conv[0].szOut(), 64, 1, 256, ct::Size(5, 5), true);
@@ -82,7 +82,7 @@ void VOCGpuTrain::init()
 
 	int outFeatures = m_conv.back().outputFeatures();
 
-	printf("Output features: %d\n", outFeatures);
+	printf("conv(Output features): %d; mlp(Output features): %d\n", outFeatures, m_out_features);
 
 	m_mlp.resize(mlp_size);
 
@@ -249,7 +249,7 @@ std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, 
 						  << val.rect.y << ", " << val.rect.width << ", " << val.rect.height << ")]\n";;
 			}
 
-			cv::putText(im, val.name, val.rect.tl(), 1, 1, cv::Scalar(0, 255, 0), 2);
+			cv::putText(im, val.name + " p[" + std::to_string(val.p) + "]", val.rect.tl(), 1, 1, cv::Scalar(0, 255, 0), 2);
 			cv::rectangle(im, val.rect, cv::Scalar(0, 0, 255), 2);
 		}
 
