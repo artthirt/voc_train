@@ -123,7 +123,7 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::Gp
 
 	GpuMat *pX2 = &m_vec2mat;
 
-	etypefunction func = LEAKRELU;
+	etypefunction func = LEAKYRELU;
 
 	for(size_t i = 0; i < m_mlp.size(); ++i){
 		if(i == m_mlp.size() - 1)

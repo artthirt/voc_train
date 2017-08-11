@@ -107,7 +107,7 @@ void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<ct::Matf> *pY)
 
 	Matf *pX2 = &m_vec2mat;
 
-	etypefunction func = LEAKRELU;
+	etypefunction func = LEAKYRELU;
 
 	for(size_t i = 0; i < m_mlp.size(); ++i){
 		if(i == m_mlp.size() - 1)
