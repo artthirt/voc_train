@@ -619,13 +619,13 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 			int off = i;
 
 			std::sort(objs[i].begin(), objs[i].end(), [](const Obj& ob1, const Obj& ob2){
-				return ob1.rectf.width * ob1.rectf.height > ob2.rectf.width * ob2.rectf.height;
+				return ob1.rectf.width * ob1.rectf.height < ob2.rectf.width * ob2.rectf.height;
 			});
 
 			int bxid1 = -1, bxid2 = -1, id = 0;
 			std::for_each(objs[i].begin(), objs[i].end(), [&](const Obj& ob){
 				float ar = ob.rectf.width / ob.rectf.height;
-				if(ar >= 1){
+				if(ar >= 1.5){
 					if(bxid1 < 0){
 						bxid1 = id;
 						update_output(res, objs[off][bxid1], off, 0, row);
@@ -742,7 +742,7 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 		std::normal_distribution<float> nd(0, 0.1);
 		float br = nd(m_gt);
 		float cntr = 0.3 * nd(m_gt);
-		m.convertTo(m, CV_32F, (0.95 + br)/255., cntr);
+		m.convertTo(m, CV_32F, (0.95 + br)/255., 0);
 	}
 
 	res.setSize(1, m.cols * m.rows * m.channels());
