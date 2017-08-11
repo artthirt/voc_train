@@ -69,7 +69,7 @@ private:
 	bool m_internal_1;
 	bool m_show_test_image;
 
-	std::vector< gpumat::conv2::convnn_gpu > m_conv;
+	std::vector< gpumat::convnn_gpu > m_conv;
 	std::vector< gpumat::MomentumOptimizer > m_mnt_optim;
 	std::vector< gpumat::mlp > m_mlp;
 	gpumat::GpuMat m_vec2mat;

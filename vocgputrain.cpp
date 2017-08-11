@@ -68,7 +68,7 @@ void VOCGpuTrain::init()
 //	m_mnt_optim.resize(cnv_size);
 
 //	for(size_t i = 0; i < m_conv.size(); ++i){
-//		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
+//		gpumat::convnn_gpu& cnv = m_conv[i];
 //		m_mnt_optim[i].setAlpha(m_lr);
 //		m_mnt_optim[i].setBetha(0.98);
 //		cnv.setOptimizer(&m_mnt_optim[i]);
@@ -91,7 +91,7 @@ void VOCGpuTrain::init()
 	m_mlp[1].init(4096, m_out_features, gpumat::GPU_FLOAT);
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
-		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
+		gpumat::convnn_gpu& cnv = m_conv[i];
 		//cnv.setDropout(0.96);
 	}
 	for(size_t i = 0; i < m_mlp.size(); ++i){
@@ -113,17 +113,17 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector<gpumat::Gp
 	std::vector< GpuMat > *pX = &X;
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
-		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
+		gpumat::convnn_gpu& cnv = m_conv[i];
 		//cnv.setDropout(dropout);
 		cnv.forward(pX, RELU);
 		pX = &cnv.XOut();
 	}
 
-	gpumat::conv2::vec2mat(m_conv.back().XOut(), m_vec2mat);
+	gpumat::vec2mat(m_conv.back().XOut(), m_vec2mat);
 
 	GpuMat *pX2 = &m_vec2mat;
 
-	etypefunction func = RELU;
+	etypefunction func = LEAKRELU;
 
 	for(size_t i = 0; i < m_mlp.size(); ++i){
 		if(i == m_mlp.size() - 1)
@@ -161,11 +161,11 @@ void VOCGpuTrain::backward(std::vector<gpumat::GpuMat> &pY)
 
 	if(cnv_do_back_layers > 0){
 		gpumat::mlp& mlp0 = m_mlp.front();
-		gpumat::conv2::convnn_gpu& cnvl = m_conv.back();
-		gpumat::conv2::mat2vec(mlp0.DltA0, cnvl.szK, m_delta_cnv);
+		gpumat::convnn_gpu& cnvl = m_conv.back();
+		gpumat::mat2vec(mlp0.DltA0, cnvl.szK, m_delta_cnv);
 		std::vector< gpumat::GpuMat > *pCnv = &m_delta_cnv;
 		for(int i = m_conv.size() - 1; i >= lrs; --i){
-			gpumat::conv2::convnn_gpu& cnvl = m_conv[i];
+			gpumat::convnn_gpu& cnvl = m_conv[i];
 			cnvl.backward(*pCnv, i == lrs);
 			pCnv = &cnvl.Dlt;
 		}
@@ -314,7 +314,7 @@ void VOCGpuTrain::setLerningRate(float lr)
 	m_optim.setAlpha(lr);
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
-		gpumat::conv2::convnn_gpu& cnv = m_conv[i];
+		gpumat::convnn_gpu& cnv = m_conv[i];
 		cnv.setAlpha(lr);
 	}
 }
@@ -516,7 +516,7 @@ bool VOCGpuTrain::loadModel(const QString &model, bool load_mlp)
 
 	printf("conv\n");
 	for(int i = 0; i < cnvs; ++i){
-		gpumat::conv2::convnn_gpu &cnv = m_conv[i];
+		gpumat::convnn_gpu &cnv = m_conv[i];
 		cnv.read2(fs);
 		printf("layer %d: rows %d, cols %d\n", i, cnv.W[0].rows, cnv.W[0].cols);
 	}
@@ -560,7 +560,7 @@ void VOCGpuTrain::saveModel(const QString &name)
 	fs.write((char*)&mlps, sizeof(mlps));
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
-		gpumat::conv2::convnn_gpu &cnv = m_conv[i];
+		gpumat::convnn_gpu &cnv = m_conv[i];
 		cnv.write2(fs);
 	}
 
