@@ -741,8 +741,8 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 	}else{
 		std::normal_distribution<float> nd(0, 0.1);
 		float br = nd(m_gt);
-		float cntr = 0.3 * nd(m_gt);
-		m.convertTo(m, CV_32F, (0.95 + br)/255., 0);
+		float cntr = nd(m_gt);
+		m.convertTo(m, CV_32F, (0.95 + br)/255., cntr);
 	}
 
 	res.setSize(1, m.cols * m.rows * m.channels());
