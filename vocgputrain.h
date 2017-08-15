@@ -32,6 +32,9 @@ public:
 	void predict(std::vector< gpumat::GpuMat >& pY, std::vector< std::vector<Obj> >& res);
 	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res);
 	std::vector<std::vector<Obj> > predicts(std::vector< int > & list, bool show = false);
+	void predicts(std::string& sdir);
+
+	void get_result(const std::vector<ct::Matf> &mX, const std::vector< std::vector< Obj > >& res, bool show, int offset = 0);
 
 	void test_predict();
 

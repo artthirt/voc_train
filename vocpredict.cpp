@@ -177,15 +177,12 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 		}
 	}
 	for(int row = 0; row < rows; ++row){
-		IObj iobj[K * K * Boxes];
-
 		for(int c = 0; c < Classes; ++c){
 			std::vector< float > line;
 			for(int j = 0; j < (int)P.size(); ++j){
 				float *dP = P[j].ptr(row);
 				line.push_back(dP[c]);
 			}
-			sort_indexes<float>(line);
 			crop_sort_classes<float>(line, Crop);
 			for(int j = 0; j < (int)P.size(); ++j){
 				float *dP = P[j].ptr(row);
@@ -273,22 +270,65 @@ void VocPredict::predicts(std::vector<int> &list, bool show)
 
 	predict(t, res);
 
+	get_result(X, res, show);
+}
+
+void VocPredict::predicts(std::string &sdir)
+{
+	QDir dir(sdir.c_str());
+	dir.setNameFilters(QStringList("*.jpg"));
+
+	if(!dir.exists() || m_conv.empty() || m_mlp.empty() || !m_reader)
+		return;
+
+	std::vector< std::vector< Obj > > res;
+	std::vector< ct::Matf > X, t;
+
+	const int max_images = 10;
+
+	X.resize(max_images);
+	for(int i = 0, ind = 0, cnt = 0; i < dir.count(); ++i, ++cnt){
+		QString fn = dir.path() + "/" + dir[i];
+		ct::Matf& Xi = X[cnt];
+		Xi.fill(0);
+		m_reader->getImage(fn.toStdString(), Xi);
+
+		if(Xi.empty())
+			continue;
+
+		if(cnt >= max_images - 1 || i == dir.count() - 1){
+			X.resize(cnt + 1);
+			forward(X, &t);
+			res.clear();
+			predict(t, res);
+			get_result(X, res, false, ind += X.size());
+			std::cout << "<<<<---- files ended: " << X.size() << " ------>>>>>>\n";
+
+			t.clear();
+			cnt = -1;
+		}
+	}
+}
+
+void VocPredict::get_result(const std::vector<ct::Matf> &mX, const std::vector<std::vector<Obj> > &res, bool show, int offset)
+{
 	cv::Mat tmp;
 	if(show){
 		if(!m_internal_1){
 			m_internal_1 = true;
 			cv::namedWindow("win", cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
-			cv::resizeWindow("win", W * list.size(), W);
 		}
 	}
 
 	for(size_t i = 0; i < res.size(); ++i){
-		ct::Matf &Xi = X[i];
+		const ct::Matf &Xi = mX[i];
 		cv::Mat im;
 		m_reader->getMat(Xi, im, cv::Size(W, W));
 
 		for(size_t j = 0; j < res[i].size(); ++j){
-			Obj& val = res[i][j];
+			const Obj& val = res[i][j];
+			if(val.p < 0.5)
+				continue;
 			if(!show){
 				std::cout << val.name << ": [" << val.p << ", (" << val.rect.x << ", "
 						  << val.rect.y << ", " << val.rect.width << ", " << val.rect.height << ")]\n";;
@@ -299,7 +339,7 @@ void VocPredict::predicts(std::vector<int> &list, bool show)
 		}
 
 		if(!show){
-			cv::imwrite("images/image" + std::to_string(i) + ".jpg", im);
+			cv::imwrite("images/image" + std::to_string(offset + i) + ".jpg", im);
 		}else{
 			if(tmp.empty())
 				im.copyTo(tmp);

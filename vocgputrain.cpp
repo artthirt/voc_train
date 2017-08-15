@@ -229,6 +229,13 @@ std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, 
 
 	predict(t, res);
 
+	get_result(mX, res, show);
+
+	return res;
+}
+
+void VOCGpuTrain::get_result(const std::vector< ct::Matf>& mX, const std::vector<std::vector<Obj> > &res, bool show, int offset)
+{
 	cv::Mat tmp;
 	if(show){
 		if(!m_internal_1){
@@ -238,12 +245,12 @@ std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, 
 	}
 
 	for(size_t i = 0; i < res.size(); ++i){
-		ct::Matf &Xi = mX[i];
+		const ct::Matf &Xi = mX[i];
 		cv::Mat im;
 		m_reader->getMat(Xi, im, cv::Size(W, W));
 
 		for(size_t j = 0; j < res[i].size(); ++j){
-			Obj& val = res[i][j];
+			const Obj& val = res[i][j];
 			if(!show){
 				std::cout << val.name << ": [" << val.p << ", (" << val.rect.x << ", "
 						  << val.rect.y << ", " << val.rect.width << ", " << val.rect.height << ")]\n";;
@@ -254,7 +261,7 @@ std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, 
 		}
 
 		if(!show){
-			cv::imwrite("images/image" + std::to_string(i) + ".jpg", im);
+			cv::imwrite("images/image" + std::to_string(offset + i) + ".jpg", im);
 		}else{
 			if(tmp.empty())
 				im.copyTo(tmp);
@@ -265,9 +272,49 @@ std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, 
 	if(show){
 		cv::imshow("win", tmp);
 	}
-
-	return res;
 }
+
+void VOCGpuTrain::predicts(std::string &sdir)
+{
+	QDir dir(sdir.c_str());
+	dir.setNameFilters(QStringList("*.jpg"));
+
+	if(!dir.exists() || m_conv.empty() || m_mlp.empty() || !m_reader)
+		return;
+
+	std::vector< std::vector< Obj > > res;
+	std::vector< gpumat::GpuMat > X, t;
+	std::vector< ct::Matf > mX;
+
+	const int max_images = 10;
+
+	mX.resize(max_images);
+	for(int i = 0, ind = 0, cnt = 0; i < dir.count(); ++i, ++cnt){
+		QString fn = dir.path() + "/" + dir[i];
+		ct::Matf &Xi = mX[cnt];
+		m_reader->getImage(fn.toStdString(), Xi);
+
+		if(Xi.empty())
+			continue;
+
+		mX.push_back(Xi);
+		if(cnt >= max_images - 1 || i == dir.count() - 1){
+			mX.resize(cnt + 1);
+			cnv2gpu(mX, X);
+
+			forward(X, &t);
+
+			res.clear();
+			predict(t, res);
+			get_result(mX, res, false, ind += mX.size());
+			std::cout << "<<<<---- files ended: " << mX.size() << " ------>>>>>>\n";
+
+			mX.clear();
+			cnt = -1;
+		}
+	}
+}
+
 
 void VOCGpuTrain::test_predict()
 {

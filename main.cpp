@@ -59,6 +59,9 @@ std::map<std::string, std::string> parseArgs(int argc, char *argv[])
 		if(str == "-predict" && i < argc){
 			res["predict"] = argv[i + 1];
 		}
+		if(str == "-predicts" && i < argc){
+			res["predicts"] = argv[i + 1];
+		}
 	}
 	return res;
 }
@@ -204,10 +207,44 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	bool predicts = false;
+	std::string dir_predicts;
+	if(contain(res, "predicts")){
+		predicts = true;
+		dir_predicts = res["predicts"];
+	}
+
 	int id = 25;
 	int cnt = 0;
 
-	if(predict){
+	if(predicts){
+		if(gpu){
+			bool model_voc_loaded = false;
+			if(contain(res, "load_voc")){
+				std::string fn = res["load_voc"];
+				model_voc_loaded = voc.loadModel(fn.c_str(), true);
+				if(model_voc_loaded){
+					printf("<<<< model for VOC loaded >>>>\n");
+				}
+			}
+			voc.predicts(indices);
+		}else{
+			VocPredict predictor;
+
+			if(contain(res, "load_voc")){
+				std::string fn = res["load_voc"];
+				bool model_voc_loaded = predictor.loadModel(fn.c_str());
+				if(model_voc_loaded){
+					printf("<<<< model for VOC loaded >>>>\n");
+				}else{
+					return 1;
+				}
+			}
+
+			predictor.setReader(&reader);
+			predictor.predicts(dir_predicts);
+		}
+	}else if(predict){
 
 		if(gpu){
 			bool model_voc_loaded = false;
