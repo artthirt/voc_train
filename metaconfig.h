@@ -3,6 +3,7 @@
 
 namespace meta{
 	const int W = 448;
+	const int H = W;
 	const int Classes = 25;
 	const int Boxes = 2;
 	const int Rects = 4 * Boxes;

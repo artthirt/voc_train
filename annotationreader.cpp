@@ -254,6 +254,8 @@ void fillP(cv::Mat& im, cv::Rect& rec, cv::Scalar col = cv::Scalar(0, 0, 200, 0)
 
 bool AnnotationReader::show(int index, bool flip, const std::string name)
 {
+	using namespace meta;
+
 	if(!annotations.size())
 		return false;
 	if(index > (int)annotations.size()){
@@ -274,7 +276,8 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 
 	}
 
-	static std::vector< ct::Matf > ims, res;
+	static std::vector< ct::Matf > ims;
+	std::vector< std::vector< ct::Matf > > res;
 	getGroundTruthMat(index, Boxes, ims, res, 0, 1, flip, false);
 
 	Annotation& it = annotations[index];
@@ -342,10 +345,10 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 //	}
 
 	if(!res.empty()){
-		for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
-			ct::Matf& m = res[i];
-			ct::Matf& cf = res[first_confidences + k];
-			ct::Matf& bx = res[first_boxes + k];
+		for(int k = 0; k < K * K; ++k){
+			ct::Matf& m  = res[0][0];
+			ct::Matf& cf = res[0][2];
+			ct::Matf& bx = res[0][1];
 			float *dCls = m.ptr();
 			float *dCfd = cf.ptr();
 			float *dBx = bx.ptr();
@@ -402,6 +405,8 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, const cv::Rect2f& Bx,
 		  std::vector< int >& bxss, int row = 0)
 {
+	using namespace meta;
+
 	if(classes.empty())
 		return;
 
@@ -450,13 +455,13 @@ void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, const cv::Re
 			float p = (float)rt.width * rt.height / (D * D);
 			if(x == bx && y == by){
 				p = 1;
-				float *dB = classes[first_boxes + off].ptr(row);
+				float *dB = classes[1].ptr(row);
 				dB[bxid * 4 + 0] = Bx.x;
 				dB[bxid * 4 + 1] = Bx.y;
 				dB[bxid * 4 + 2] = Bx.width;
 				dB[bxid * 4 + 3] = Bx.height;
 			}
-			float *dC = classes[first_classes + off].ptr(row);
+			float *dC = classes[0].ptr(row);
 			dC[cls] = 1;
 
 //			float *dB = classes[first_boxes + off].ptr(row);
@@ -465,7 +470,7 @@ void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, const cv::Re
 //			dB[bxid * 4 + 2] = Bx.width;
 //			dB[bxid * 4 + 3] = Bx.height;
 
-			float *dCf = classes[first_confidences + off].ptr(row);
+			float *dCf = classes[2].ptr(row);
 			dCf[bxid] = p;
 
 			bxss[off] = bxid + 1;
@@ -671,6 +676,8 @@ void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
 										 std::vector<ct::Matf> &images, std::vector< std::vector< ct::Matf > > &res,
 										 bool flip, bool aug)
 {
+	using namespace meta;
+
 	int rows = indices.size();
 
 	std::vector< int > flips;
@@ -692,7 +699,7 @@ void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
 		v[2].setSize(K * K, Boxes);
 	}
 
-	std::for_each(res.begin(), res.end(), [=](std::vecotr< ct::Matf >& mat){
+	std::for_each(res.begin(), res.end(), [=](std::vector< ct::Matf >& mat){
 		mat[0].fill(0);
 		mat[1].fill(0);
 		mat[2].fill(0);
@@ -728,6 +735,8 @@ void offsetImage(cv::Mat &image, cv::Scalar bordercolour, int xoffset, int yoffs
 
 void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool flip, bool aug, const cv::Point &off)
 {
+	using namespace meta;
+
 	cv::Mat m = cv::imread(filename);
 	if(m.empty())
 		return;

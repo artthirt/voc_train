@@ -16,7 +16,7 @@
 
 /////////////////////
 
-void cnv2gpu(const std::vector< ct::Matf >& In, std::vector< gpumat::GpuMat >& Out)
+void cnv2gpu(std::vector< ct::Matf >& In, std::vector< gpumat::GpuMat >& Out)
 {
 	Out.resize(In.size());
 	for(size_t i = 0; i < In.size(); ++i){
@@ -89,6 +89,8 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 
 void VOCGpuTrain::init()
 {
+	using namespace meta;
+
 	m_conv.resize(cnv_size2);
 //	m_mnt_optim.resize(cnv_size);
 
@@ -98,7 +100,6 @@ void VOCGpuTrain::init()
 //		m_mnt_optim[i].setBetha(0.98);
 //		cnv.setOptimizer(&m_mnt_optim[i]);
 //	}
-	using namespace meta;
 
 	m_conv[0].init(ct::Size(W, H), 3, 3, 64, ct::Size(5, 5), gpumat::LEAKYRELU, false, true, false);
 	m_conv[1].init(m_conv[0].szOut(), 64, 2, 64, ct::Size(5, 5), gpumat::LEAKYRELU, false, true, true);
@@ -112,7 +113,7 @@ void VOCGpuTrain::init()
 	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
 	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
 	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
-	m_conv[11].init(m_conv[10].szOut(), 1024, 1, Classes + Boxes + 4 * Boxes, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+	m_conv[11].init(m_conv[10].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
 
 	K = m_conv.back().szOut().width;
 
@@ -124,7 +125,7 @@ void VOCGpuTrain::init()
 
 void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vector< gpumat::GpuMat > > *pY, bool dropout)
 {
-	if(X.empty() || m_conv.empty() || m_mlp.empty())
+	if(X.empty() || m_conv.empty())
 		return;
 
 	using namespace gpumat;
@@ -223,17 +224,19 @@ std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, 
 	if(!dir.exists("test"))
 		dir.mkdir("test");
 
-	for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
-		gpumat::save_gmat(t[i], "test/cls" + std::to_string(k));
-		gpumat::save_gmat(y[i], "test/ycls" + std::to_string(k));
-	}
-	for(int i = first_boxes, k = 0; i < last_boxes + 1; ++i, ++k){
-		gpumat::save_gmat(t[i], "test/boxes" + std::to_string(k));
-		gpumat::save_gmat(y[i], "test/ybxs" + std::to_string(k));
-	}
-	for(int i = first_confidences, k = 0; i < last_confidences + 1; ++i, ++k){
-		gpumat::save_gmat(t[i], "test/cfd" + std::to_string(k));
-		gpumat::save_gmat(y[i], "test/ycfd" + std::to_string(k));
+	for(int k = 0; k < t.size(); ++k){
+		{
+			gpumat::save_gmat(t[k][0], "test/cls" + std::to_string(k));
+			gpumat::save_gmat(y[k][0], "test/ycls" + std::to_string(k));
+		}
+		{
+			gpumat::save_gmat(t[k][1], "test/boxes" + std::to_string(k));
+			gpumat::save_gmat(y[k][1], "test/ybxs" + std::to_string(k));
+		}
+		{
+			gpumat::save_gmat(t[k][2], "test/cfd" + std::to_string(k));
+			gpumat::save_gmat(y[k][2], "test/ycfd" + std::to_string(k));
+		}
 	}
 
 	predict(t, res);
@@ -245,6 +248,8 @@ std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, 
 
 void VOCGpuTrain::get_result(const std::vector< ct::Matf>& mX, const std::vector<std::vector<Obj> > &res, bool show, int offset)
 {
+	using namespace meta;
+
 	cv::Mat tmp;
 	if(show){
 		if(!m_internal_1){
@@ -288,11 +293,12 @@ void VOCGpuTrain::predicts(std::string &sdir)
 	QDir dir(sdir.c_str());
 	dir.setNameFilters(QStringList("*.jpg"));
 
-	if(!dir.exists() || m_conv.empty() || m_mlp.empty() || !m_reader)
+	if(!dir.exists() || m_conv.empty() || !m_reader)
 		return;
 
 	std::vector< std::vector< Obj > > res;
-	std::vector< gpumat::GpuMat > X, t;
+	std::vector< gpumat::GpuMat > X;
+	std::vector< std::vector< gpumat::GpuMat > >t;
 	std::vector< ct::Matf > mX;
 
 	const int max_images = 10;
@@ -382,7 +388,12 @@ void VOCGpuTrain::setNumSavePass(int num)
 
 void VOCGpuTrain::setSeed(int seed)
 {
+#if CV_VERSION_MAJOR <= 3 && CV_VERSION_MINOR < 1
 	cv::setRNGSeed(seed);
+#else
+	cv::theRNG().state = seed;
+#endif
+	ct::generator.seed(seed);
 }
 
 void VOCGpuTrain::get_delta(std::vector< std::vector< gpumat::GpuMat >  >& t, std::vector< std::vector< gpumat::GpuMat > >& y, bool test)
@@ -413,28 +424,28 @@ void VOCGpuTrain::get_delta(std::vector< std::vector< gpumat::GpuMat >  >& t, st
 	}
 }
 
-float get_loss(std::vector< gpumat::GpuMat >& t)
+float get_loss(std::vector< std::vector< gpumat::GpuMat > >& t)
 {
 	ct::Matf mat;
 	float res1 = 0, res2 = 0, res3 = 0;
 	for(int b = 0; b < t.size(); ++b){
 		{
 			gpumat::elemwiseSqr(t[b][0], t[b][0]);
-			gpumat::convert_to_mat(t[b], mat);
+			gpumat::convert_to_mat(t[b][0], mat);
 			res1 = mat.sum() / mat.rows;
 		}
 		//res1 /= (last_classes - first_classes + 1);
 
 		{
-			gpumat::elemwiseSqr(t[i], t[i]);
-			gpumat::convert_to_mat(t[i], mat);
+			gpumat::elemwiseSqr(t[b][1], t[b][1]);
+			gpumat::convert_to_mat(t[b][1], mat);
 			res2 = mat.sum() / mat.rows;
 		}
 		//res2 /= (last_boxes - first_boxes + 1);
 
 		{
-			gpumat::elemwiseSqr(t[i], t[i]);
-			gpumat::convert_to_mat(t[i], mat);
+			gpumat::elemwiseSqr(t[b][2], t[b][2]);
+			gpumat::convert_to_mat(t[b][2], mat);
 			res3 = mat.sum() / mat.rows;
 		}
 	}
@@ -445,6 +456,8 @@ float get_loss(std::vector< gpumat::GpuMat >& t)
 
 void VOCGpuTrain::doPass()
 {
+	using namespace meta;
+
 	std::vector< ct::Matf > mX;
 	std::vector< std::vector< ct::Matf > >mY;
 
@@ -504,11 +517,14 @@ void VOCGpuTrain::doPass()
 
 void VOCGpuTrain::test()
 {
-	std::vector< ct::Matf > mX, mY;
+	using namespace meta;
+
+	std::vector< ct::Matf > mX;
+	std::vector< std::vector< ct::Matf > > mY;
 	std::vector< std::vector< Obj > > res;
 
 	std::vector< gpumat::GpuMat > X;
-	std::vector< gpumat::GpuMat > y, t;
+	std::vector< std::vector< gpumat::GpuMat > > y, t;
 	std::vector< int > cols;
 
 //	cols.resize(m_batch);
@@ -574,23 +590,46 @@ bool VOCGpuTrain::loadModel(const QString &model, bool load_mlp)
 
 	printf("Load model: conv size %d, mlp size %d\n", cnvs, mlps);
 
-	if((int)m_conv.size() < cnvs)
-		m_conv.resize(cnvs);
+#define USE_MLP 0
 
+	if(m_conv.size() < cnvs)
+		m_conv.resize(cnvs);
+#if USE_MLP
+	m_mlp.resize(mlps);
+#endif
 	printf("conv\n");
-	for(int i = 0; i < cnvs; ++i){
+	for(size_t i = 0; i < cnvs; ++i){
 		gpumat::convnn_gpu &cnv = m_conv[i];
 		cnv.read2(fs);
-		printf("layer %d: rows %d, cols %d\n", i, cnv.W[0].rows, cnv.W[0].cols);
+		printf("layer %d: rows %d, cols %d\n", i, cnv.W.rows, cnv.W.cols);
 	}
 
-	if(load_mlp){
-		m_mlp.resize(mlps);
-		printf("mlp\n");
-		for(size_t i = 0; i < m_mlp.size(); ++i){
-			gpumat::mlp &mlp = m_mlp[i];
-			mlp.read2(fs);
-			printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+	printf("mlp\n");
+	for(size_t i = 0; i < mlps; ++i){
+#if USE_MLP
+		gpumat::mlp &mlp = m_mlp[i];
+		mlp.read2(fs);
+		printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+#else
+		gpumat::GpuMat W, B;
+		gpumat::read_fs2(fs, W);
+		gpumat::read_fs2(fs, B);
+		printf("layer %d: rows %d, cols %d\n", i, W.rows, W.cols);
+#endif
+	}
+
+	int use_bn = 0, layers = 0;
+	fs.read((char*)&use_bn, sizeof(use_bn));
+	fs.read((char*)&layers, sizeof(layers));
+	if(use_bn > 0){
+		for(int i = 0; i < layers; ++i){
+			int64_t layer = -1;
+			fs.read((char*)&layer, sizeof(layer));
+			if(layer >=0 && layer < 10000){
+				m_conv[layer].bn.read(fs);
+//				gpumat::save_gmat(m_conv[layer].bn.gamma, "g" + std::to_string(layer) +".txt");
+//				gpumat::save_gmat(m_conv[layer].bn.betha, "b" + std::to_string(layer) +".txt");
+			}
 		}
 	}
 
@@ -615,21 +654,42 @@ void VOCGpuTrain::saveModel(const QString &name)
 
 //	fs.write((char*)&m_szA0, sizeof(m_szA0));
 
-	int cnvs = m_conv.size(), mlps = m_mlp.size();
+	int cnvs = m_conv.size(), mlps = 0;//m_mlp.size();
 
 	/// size of convolution array
 	fs.write((char*)&cnvs, sizeof(cnvs));
 	/// size of mlp array
 	fs.write((char*)&mlps, sizeof(mlps));
 
+
 	for(size_t i = 0; i < m_conv.size(); ++i){
 		gpumat::convnn_gpu &cnv = m_conv[i];
 		cnv.write2(fs);
 	}
 
+#if 0
 	for(size_t i = 0; i < m_mlp.size(); ++i){
-		gpumat::mlp& mlp = m_mlp[i];
-		mlp.write2(fs);
+		m_mlp[i].write2(fs);
+	}
+#endif
+
+	int use_bn = 0, layers = 0;
+	for(gpumat::convnn_gpu& item: m_conv){
+		if(item.use_bn()){
+			use_bn = 1;
+			layers++;
+		}
+	}
+
+	fs.write((char*)&use_bn, sizeof(use_bn));
+	fs.write((char*)&layers, sizeof(layers));
+	if(use_bn > 0){
+		for(size_t i = 0; i < m_conv.size(); ++i){
+			if(m_conv[i].use_bn()){
+				fs.write((char*)&i, sizeof(i));
+				m_conv[i].bn.write(fs);
+			}
+		}
 	}
 
 	printf("model saved.\n");

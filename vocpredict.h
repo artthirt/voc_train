@@ -26,7 +26,7 @@ public:
 	void setReader(AnnotationReader* reader);
 
 	void forward(std::vector< ct::Matf >& X, std::vector< std::vector< ct::Matf> >* pY);
-	void backward(std::vector< ct::Matf >& pY);
+	void backward(std::vector<std::vector<ct::Matf> > &pY);
 	void predict(std::vector<std::vector<ct::Matf> > &pY, std::vector<std::vector<Obj> > &res);
 	void predicts(std::vector< int > & list, bool show = false);
 	void predicts(std::string& sdir);
@@ -42,7 +42,7 @@ public:
 
 	void doPass();
 
-	void get_delta(std::vector< ct::Matf >& t, std::vector< ct::Matf >& y, bool test = false);
+	void get_delta(std::vector<std::vector<ct::Matf> > &t, std::vector<std::vector<ct::Matf> > &y, bool test = false);
 
 private:
 	QString m_model;

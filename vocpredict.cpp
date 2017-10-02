@@ -64,19 +64,19 @@ void VocPredict::init()
 
 	m_conv.resize(cnv_size2);
 
-	m_conv[0].init(ct::Size(W, H), 3, 3, 64, ct::Size(5, 5), gpumat::LEAKYRELU, false, true, false);
-	m_conv[1].init(m_conv[0].szOut(), 64, 2, 64, ct::Size(5, 5), gpumat::LEAKYRELU, false, true, true);
-	m_conv[2].init(m_conv[1].szOut(), 64, 1, 128, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
-	m_conv[3].init(m_conv[2].szOut(), 128, 1, 256, ct::Size(3, 3), gpumat::LEAKYRELU, true, true, true);
-	m_conv[4].init(m_conv[3].szOut(), 256, 2, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
-	m_conv[5].init(m_conv[4].szOut(), 512, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
-	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true);
-	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
+	m_conv[0].init(ct::Size(W, H), 3, 3, 64, ct::Size(5, 5), ct::LEAKYRELU, false, true, false);
+	m_conv[1].init(m_conv[0].szOut(), 64, 2, 64, ct::Size(5, 5), ct::LEAKYRELU, false, true, true);
+	m_conv[2].init(m_conv[1].szOut(), 64, 1, 128, ct::Size(3, 3), ct::LEAKYRELU, false, true, true);
+	m_conv[3].init(m_conv[2].szOut(), 128, 1, 256, ct::Size(3, 3), ct::LEAKYRELU, true, true, true);
+	m_conv[4].init(m_conv[3].szOut(), 256, 2, 512, ct::Size(3, 3), ct::LEAKYRELU, false, true, true);
+	m_conv[5].init(m_conv[4].szOut(), 512, 1, 512, ct::Size(3, 3), ct::LEAKYRELU, false, true, true);
+	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), ct::LEAKYRELU, false, true, true);
+	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), ct::LEAKYRELU, false, true, true);
 
-	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
-	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
-	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
-	m_conv[11].init(m_conv[10].szOut(), 1024, 1, Classes + Boxes + 4 * Boxes, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), ct::LEAKYRELU, false, true, true, true);
+	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), ct::LEAKYRELU, false, true, true, true);
+	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(3, 3), ct::LEAKYRELU, false, true, true, true);
+	m_conv[11].init(m_conv[10].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(3, 3), ct::LEAKYRELU, false, true, true, true);
 
 	K = m_conv.back().szOut().width;
 
@@ -93,10 +93,11 @@ void VocPredict::setReader(AnnotationReader *reader)
 
 void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<std::vector<ct::Matf> > *pY)
 {
-	if(X.empty() || m_conv.empty() || m_mlp.empty())
+	if(X.empty() || m_conv.empty())
 		return;
 
 	using namespace ct;
+	using namespace meta;
 
 	std::vector< Matf > *pX = &X;
 
@@ -127,7 +128,7 @@ void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<std::vector<ct::M
 
 }
 
-void VocPredict::backward(std::vector<ct::Matf> &pY)
+void VocPredict::backward(std::vector<std::vector< ct::Matf> > &pY)
 {
 	using namespace meta;
 	using namespace ct;
@@ -239,10 +240,13 @@ void VocPredict::predict(std::vector<std::vector< ct::Matf > > &pY, std::vector<
 
 void VocPredict::predicts(std::vector<int> &list, bool show)
 {
+	using namespace meta;
+
 	if(!m_reader || list.empty())
 		return;
 
-	std::vector< ct::Matf > X, y, t;
+	std::vector< ct::Matf > X;
+	std::vector< std::vector< ct::Matf > > y, t;
 	std::vector< std::vector< Obj > > res;
 
 	m_reader->getGroundTruthMat(list, Boxes, X, y);
@@ -256,18 +260,21 @@ void VocPredict::predicts(std::vector<int> &list, bool show)
 	if(!dir.exists("test"))
 		dir.mkdir("test");
 
-	for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
-		ct::save_mat(t[i], "test/cls" + std::to_string(k));
-		ct::save_mat(y[i], "test/ycls" + std::to_string(k));
+	for(int k = 0; k < t.size(); ++k){
+		{
+			ct::save_mat(t[k][0], "test/cls" + std::to_string(k));
+			ct::save_mat(y[k][0], "test/ycls" + std::to_string(k));
+		}
+		{
+			ct::save_mat(t[k][1], "test/boxes" + std::to_string(k));
+			ct::save_mat(y[k][1], "test/ybxs" + std::to_string(k));
+		}
+		{
+			ct::save_mat(t[k][2], "test/cfd" + std::to_string(k));
+			ct::save_mat(y[k][2], "test/ycfd" + std::to_string(k));
+		}
 	}
-	for(int i = first_boxes, k = 0; i < last_boxes + 1; ++i, ++k){
-		ct::save_mat(t[i], "test/boxes" + std::to_string(k));
-		ct::save_mat(y[i], "test/ybxs" + std::to_string(k));
-	}
-	for(int i = first_confidences, k = 0; i < last_confidences + 1; ++i, ++k){
-		ct::save_mat(t[i], "test/cfd" + std::to_string(k));
-		ct::save_mat(y[i], "test/ycfd" + std::to_string(k));
-	}
+
 
 	predict(t, res);
 
@@ -279,11 +286,12 @@ void VocPredict::predicts(std::string &sdir)
 	QDir dir(sdir.c_str());
 	dir.setNameFilters(QStringList("*.jpg"));
 
-	if(!dir.exists() || m_conv.empty() || m_mlp.empty() || !m_reader)
+	if(!dir.exists() || m_conv.empty() || !m_reader)
 		return;
 
 	std::vector< std::vector< Obj > > res;
-	std::vector< ct::Matf > X, t;
+	std::vector< ct::Matf > X;
+	std::vector< std::vector< ct::Matf > > t;
 
 	const int max_images = 10;
 
@@ -313,6 +321,8 @@ void VocPredict::predicts(std::string &sdir)
 
 void VocPredict::get_result(const std::vector<ct::Matf> &mX, const std::vector<std::vector<Obj> > &res, bool show, int offset)
 {
+	using namespace meta;
+
 	cv::Mat tmp;
 	if(show){
 		if(!m_internal_1){
@@ -400,26 +410,48 @@ bool VocPredict::loadModel(const QString &model, bool load_mlp)
 
 	printf("Load model: conv size %d, mlp size %d\n", cnvs, mlps);
 
-	if((int)m_conv.size() < cnvs)
-		m_conv.resize(cnvs);
+#define USE_MLP 0
 
+	if(m_conv.size() < cnvs)
+		m_conv.resize(cnvs);
+#if USE_MLP
+	m_mlp.resize(mlps);
+#endif
 	printf("conv\n");
-	for(int i = 0; i < cnvs; ++i){
+	for(size_t i = 0; i < cnvs; ++i){
 		conv2::convnn2_mixed &cnv = m_conv[i];
 		cnv.read2(fs);
-		printf("layer %d: rows %d, cols %d\n", i, cnv.W[0].rows, cnv.W[0].cols);
+		printf("layer %d: rows %d, cols %d\n", i, cnv.W.rows, cnv.W.cols);
 	}
 
-	if(load_mlp){
-		m_mlp.resize(mlps);
-		printf("mlp\n");
-		for(size_t i = 0; i < m_mlp.size(); ++i){
-			ct::mlp_mixed &mlp = m_mlp[i];
-			mlp.read2(fs);
-			printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+	printf("mlp\n");
+	for(size_t i = 0; i < mlps; ++i){
+#if USE_MLP
+		gpumat::mlp &mlp = m_mlp[i];
+		mlp.read2(fs);
+		printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+#else
+		ct::Matf W, B;
+		ct::read_fs2(fs, W);
+		ct::read_fs2(fs, B);
+		printf("layer %d: rows %d, cols %d\n", i, W.rows, W.cols);
+#endif
+	}
+
+	int use_bn = 0, layers = 0;
+	fs.read((char*)&use_bn, sizeof(use_bn));
+	fs.read((char*)&layers, sizeof(layers));
+	if(use_bn > 0){
+		for(int i = 0; i < layers; ++i){
+			int64_t layer = -1;
+			fs.read((char*)&layer, sizeof(layer));
+			if(layer >=0 && layer < 10000){
+				m_conv[layer].bn.read(fs);
+//				gpumat::save_gmat(m_conv[layer].bn.gamma, "g" + std::to_string(layer) +".txt");
+//				gpumat::save_gmat(m_conv[layer].bn.betha, "b" + std::to_string(layer) +".txt");
+			}
 		}
 	}
-
 	printf("model loaded.\n");
 	return true;
 }
@@ -441,7 +473,7 @@ void VocPredict::saveModel(const QString &name)
 
 //	fs.write((char*)&m_szA0, sizeof(m_szA0));
 
-	int cnvs = m_conv.size(), mlps = m_mlp.size();
+	int cnvs = m_conv.size(), mlps = 0; //m_mlp.size();
 
 	/// size of convolution array
 	fs.write((char*)&cnvs, sizeof(cnvs));
@@ -453,11 +485,30 @@ void VocPredict::saveModel(const QString &name)
 		cnv.write2(fs);
 	}
 
+#if 0
 	for(size_t i = 0; i < m_mlp.size(); ++i){
-		ct::mlp_mixed& mlp = m_mlp[i];
-		mlp.write2(fs);
+		m_mlp[i].write2(fs);
+	}
+#endif
+
+	int use_bn = 0, layers = 0;
+	for(conv2::convnn2_mixed& item: m_conv){
+		if(item.use_bn()){
+			use_bn = 1;
+			layers++;
+		}
 	}
 
+	fs.write((char*)&use_bn, sizeof(use_bn));
+	fs.write((char*)&layers, sizeof(layers));
+	if(use_bn > 0){
+		for(size_t i = 0; i < m_conv.size(); ++i){
+			if(m_conv[i].use_bn()){
+				fs.write((char*)&i, sizeof(i));
+				m_conv[i].bn.write(fs);
+			}
+		}
+	}
 	printf("model saved.\n");
 }
 
@@ -468,63 +519,70 @@ void VocPredict::setModelSaveName(const QString &name)
 
 void VocPredict::setSeed(int seed)
 {
+#if CV_VERSION_MAJOR <= 3 && CV_VERSION_MINOR < 1
 	cv::setRNGSeed(seed);
+#else
+	cv::theRNG().state = seed;
+#endif
+	ct::generator.seed(seed);
 }
 
-void VocPredict::get_delta(std::vector< ct::Matf >& t, std::vector< ct::Matf >& y, bool test)
+void VocPredict::get_delta(std::vector< std::vector< ct::Matf > >& t, std::vector< std::vector< ct::Matf > >& y, bool test)
 {
-	for(int i = first_classes, k = 0; i < last_classes + 1; ++i, ++k){
+	using namespace meta;
+
+	for(int b = 0; b < t.size(); ++b){
+		std::vector< ct::Matf >& ti = t[b];
+		std::vector< ct::Matf >& yi = y[b];
 		if(test){
-			ct::save_mat(t[i], "test/cls" + std::to_string(k));
-			ct::save_mat(y[i], "test/ycls" + std::to_string(k));
+			ct::save_mat(ti[0], "test/cls" + std::to_string(b));
+			ct::save_mat(yi[0], "test/ycls" + std::to_string(b));
 		}
-		ct::subWithColumn(t[i], y[i], m_reader->lambdaBxs[k]);
-	}
-	for(int i = first_boxes, k = 0; i < last_boxes + 1; ++i, ++k){
+		ct::subWithColumn(ti[0], yi[0], m_reader->lambdaBxs[b]);
+
 		if(test){
-			ct::save_mat(t[i], "test/boxes" + std::to_string(k));
-			ct::save_mat(y[i], "test/ybxs" + std::to_string(k));
+			ct::save_mat(ti[1], "test/boxes" + std::to_string(b));
+			ct::save_mat(yi[1], "test/ybxs" + std::to_string(b));
 		}
-		ct::subWithColumn(t[i], y[i], m_reader->lambdaBxs[k]);
-	}
-	for(int i = first_confidences, k = 0; i < last_confidences + 1; ++i, ++k){
+		ct::subWithColumn(ti[1], yi[1], m_reader->lambdaBxs[b]);
+
 		if(test){
-			ct::save_mat(t[i], "test/cfd" + std::to_string(k));
-			ct::save_mat(y[i], "test/ycfd" + std::to_string(k));
+			ct::save_mat(ti[2], "test/cfd" + std::to_string(b));
+			ct::save_mat(yi[2], "test/ycfd" + std::to_string(b));
 		}
-		ct::back_delta_sigmoid(t[i], y[i], m_reader->lambdaBxs[k]);
-//		gpumat::sub(t[i], y[i], t[i]);
+		ct::back_delta_sigmoid(ti[2], yi[2], m_reader->lambdaBxs[b]);
+	//		gpumat::sub(t[i], y[i], t[i]);
 	}
 }
 
-float get_loss(std::vector< ct::Matf >& t)
+float get_loss(std::vector< std::vector< ct::Matf > >& t)
 {
-	float res1 = 0;
-	for(int i = first_classes; i < last_classes + 1; ++i){
-		ct::v_elemwiseSqr(t[i]);
-		res1 += t[i].sum() / t[i].rows;
-	}
-	res1 /= (last_classes - first_classes + 1);
+	float res1 = 0, res2 = 0, res3 = 0;
+	for(int b = 0; b < t.size(); ++b){
+		{
+			ct::v_elemwiseSqr(t[b][0]);
+			res1 = t[b][0].sum() / t[b][0].rows;
+		}
 
-	float res2 = 0;
-	for(int i = first_boxes; i < last_boxes + 1; ++i){
-		ct::v_elemwiseSqr(t[i]);
-		res2 += t[i].sum() / t[i].rows;
-	}
-	res2 /= (last_boxes - first_boxes + 1);
+		res2 = 0;
+		{
+			ct::v_elemwiseSqr(t[b][1]);
+			res2 = t[b][1].sum() / t[b][1].rows;
+		}
 
-	float res3 = 0;
-	for(int i = first_confidences; i < last_confidences + 1; ++i){
-		ct::v_elemwiseSqr(t[i]);
-		res3 += t[i].sum() / t[i].rows;
+		res3 = 0;
+		{
+			ct::v_elemwiseSqr(t[b][2]);
+			res3 = t[b][2].sum() / t[b][2].rows;
+		}
 	}
-	res3 /= (last_confidences - first_confidences + 1);
 
 	return res1 + res2 + res3;
 }
 
 void save_lambdas(const std::vector<ct::Matf>& lmbd)
 {
+	using namespace meta;
 	std::fstream fs;
 	fs.open("test/lmbd.txt", std::ios_base::out);
 	if(!fs.is_open())
@@ -551,10 +609,13 @@ void save_lambdas(const std::vector<ct::Matf>& lmbd)
 
 void VocPredict::doPass()
 {
+	using namespace meta;
+
 	if(!m_reader)
 		return;
 
-	std::vector< ct::Matf > X, y, t;
+	std::vector< ct::Matf > X;
+	std::vector< std::vector< ct::Matf > > y, t;
 	std::vector< int > list;
 	list.resize(m_batch);
 	for(int pass = 0; pass < m_passes; ++pass){

@@ -284,7 +284,9 @@ int main(int argc, char *argv[])
 		}
 		for(size_t i = 0; i < r.size(); ++i){
 			std::cout << "-->" << i << std::endl;
-			std::cout << r[i].print() << std::endl;
+			std::cout << r[i][0].print() << std::endl;
+			std::cout << r[i][1].print() << std::endl;
+			std::cout << r[i][2].print() << std::endl;
 		}
 		printf("<<<<<< end >>>>>>>");
 
@@ -299,11 +301,15 @@ int main(int argc, char *argv[])
 		inds.push_back(25);
 		inds.push_back(41);
 		reader.getGroundTruthMat(inds, 2, im, r);
-		std::cout << "Mat[0] size: " << r[0].rows << "," << r[0].cols << std::endl;
+		std::cout << "Mat[0] size: " << r[0][0].rows << "," << r[0][0].cols << std::endl;
+		std::cout << "Mat[1] size: " << r[0][1].rows << "," << r[0][1].cols << std::endl;
+		std::cout << "Mat[2] size: " << r[0][2].rows << "," << r[0][2].cols << std::endl;
 
 		for(size_t i = 0; i < r.size(); ++i){
 			std::cout << "-->" << i << std::endl;
-			std::cout << r[i].print() << std::endl;
+			std::cout << r[i][0].print() << std::endl;
+			std::cout << r[i][1].print() << std::endl;
+			std::cout << r[i][2].print() << std::endl;
 		}
 
 		const int CNT = 500;
