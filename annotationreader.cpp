@@ -202,6 +202,8 @@ size_t AnnotationReader::size() const
 
 void fillP(cv::Mat& im, cv::Rect& rec, cv::Scalar col = cv::Scalar(0, 0, 200, 0))
 {
+	using namespace meta;
+
 	int D = W / K;
 	int bxs = (rec.x * K) / W;
 	int bxe = ((rec.x + rec.width) * K) / W;
@@ -477,27 +479,32 @@ void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, const cv::Re
 	}
 }
 
-void AnnotationReader::update_output(std::vector< ct::Matf >& res, Obj& ob, int off, int bxid, int row)
+void AnnotationReader::update_output(std::vector< std::vector< ct::Matf > >& res, Obj& ob, int off, int bxid, int row)
 {
+	using namespace meta;
+
 	std::string name = ob.name;
 	int cls = classes[name];
 
-	float *dB = res[first_boxes + off].ptr(row);
-	dB[bxid * 4 + 0] = (float)ob.rectf.x;
-	dB[bxid * 4 + 1] = (float)ob.rectf.y;
-	dB[bxid * 4 + 2] = (float)ob.rectf.width;
-	dB[bxid * 4 + 3] = (float)ob.rectf.height;
+	float *dB = res[row][1].ptr(0);
+	dB[off * Rects + bxid * 4 + 0] = (float)ob.rectf.x;
+	dB[off * Rects + bxid * 4 + 1] = (float)ob.rectf.y;
+	dB[off * Rects + bxid * 4 + 2] = (float)ob.rectf.width;
+	dB[off * Rects + bxid * 4 + 3] = (float)ob.rectf.height;
 
-	float *dC = res[first_classes + off].ptr(row);
-	dC[cls] = 1;
+	float *dC = res[row][0].ptr(0);
+	dC[off * Classes + cls] = 1;
 
-	float *dCf = res[first_confidences + off].ptr(row);
-	dCf[bxid] = 1;
+	float *dCf = res[row][2].ptr(0);
+	dCf[off * Boxes + bxid] = 1;
 }
 
 Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vector< ct::Matf >& images,
-									std::vector<ct::Matf> &res, int row, int rows, bool flip, bool load_image, bool aug, bool init_input)
+												std::vector< std::vector< ct::Matf > > &res, int row, int rows,
+												bool flip, bool load_image, bool aug, bool init_input)
 {
+	using namespace meta;
+
 	if(index < 0 || index > (int)annotations.size()){
 		throw;
 	}
@@ -507,26 +514,19 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 	if(init_input){
 
-		if(res.size() != last_confidences + 1)
-			res.resize(last_confidences + 1);
-		for(int i = first_classes; i < last_classes + 1; ++i){
-			res[i].setSize(rows, Classes);
-		}
-		for(int i = first_boxes; i < last_boxes + 1; ++i){
-			res[i].setSize(rows, 4 * boxes);
-		}
-		for(int i = first_confidences; i < last_confidences + 1; ++i){
-			res[i].setSize(rows, 1 * boxes);
+		res.resize(rows);
+		for(std::vector< ct::Matf > &v : res){
+			v.resize(3);
+			v[0].setSize(K * K, Classes);
+			v[1].setSize(K * K, Rects);
+			v[2].setSize(K * K, Boxes);
 		}
 
-		std::for_each(res.begin(), res.end(), [=](ct::Matf& mat){
-			mat.fill(0, row, 1);
-		});
-
-		for(size_t i = 0; i < lambdaBxs.size(); ++i){
-			lambdaBxs[i].setSize(rows, 1);
-			lambdaBxs[i].ptr(row)[0] = (0.5);
-		}
+		{
+			res[row][0].fill(0);
+			res[row][1].fill(0);
+			res[row][2].fill(0);
+		};
 	}
 
 	int xoff = 0, yoff = 0;
@@ -538,7 +538,11 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 	}
 
 	if(lambdaBxs.empty()){
-		lambdaBxs.resize(K * K);
+		lambdaBxs.resize(rows);
+	}
+	if(init_input){
+		lambdaBxs[row].setSize(K * K, 1);
+		lambdaBxs[row].fill(0.5);
 	}
 
 
@@ -588,7 +592,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 		objs[off].push_back(ob);
 
-		lambdaBxs[off].ptr(row)[0] = 5.;
+		lambdaBxs[row].ptr(off)[0] = 5.;
 
 #if DEBUG_IMAGE
 		{
@@ -618,10 +622,12 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		if(C > 0){
 			int off = i;
 
+			/// sort the found objects with ascend their area
 			std::sort(objs[i].begin(), objs[i].end(), [](const Obj& ob1, const Obj& ob2){
 				return ob1.rectf.width * ob1.rectf.height < ob2.rectf.width * ob2.rectf.height;
 			});
 
+			/// update matrices for the found objects
 			int bxid1 = -1, bxid2 = -1, id = 0;
 			std::for_each(objs[i].begin(), objs[i].end(), [&](const Obj& ob){
 				float ar = ob.rectf.width / ob.rectf.height;
@@ -641,17 +647,20 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		}
 	}
 
-	for(int i = first_classes; i < last_classes + 1; ++i){
-		ct::Matf& m = res[first_classes + i];
-		float* dC = m.ptr(row);
+	{
+		ct::Matf& m = res[row][0];
 		float p = 0;
-		for(int j = 0; j < Classes; ++j){
-			p += dC[j];
-		}
-		if(p > 0.1){
-			for(int j = 0; j < Classes; ++j) dC[j] /= p;
-		}else{
-			dC[0] = 1;
+
+		for(int i = 0; i < K * K; ++i){
+			float* dC = m.ptr(i);
+			for(int j = 0; j < Classes; ++j){
+				p += dC[j];
+			}
+			if(p > 0.1){
+				for(int j = 0; j < Classes; ++j) dC[j] /= p;
+			}else{
+				dC[0] = 1;
+			}
 		}
 	}
 
@@ -659,7 +668,8 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 }
 
 void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
-									std::vector<ct::Matf> &images, std::vector<ct::Matf> &res, bool flip, bool aug)
+										 std::vector<ct::Matf> &images, std::vector< std::vector< ct::Matf > > &res,
+										 bool flip, bool aug)
 {
 	int rows = indices.size();
 
@@ -674,31 +684,29 @@ void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
 		flips.resize(indices.size(), 0);
 	}
 
-	if(res.size() != last_confidences + 1)
-		res.resize(last_confidences + 1);
-	for(int i = first_classes; i < last_classes + 1; ++i){
-		res[i].setSize(rows, Classes);
+	res.resize(rows);
+	for(std::vector< ct::Matf > &v : res){
+		v.resize(3);
+		v[0].setSize(K * K, Classes);
+		v[1].setSize(K * K, Rects);
+		v[2].setSize(K * K, Boxes);
 	}
-	for(int i = first_boxes; i < last_boxes + 1; ++i){
-		res[i].setSize(rows, 4 * boxes);
-	}
-	for(int i = first_confidences; i < last_confidences + 1; ++i){
-		res[i].setSize(rows, 1 * boxes);
-	}
-	std::for_each(res.begin(), res.end(), [=](ct::Matf& mat){
-		mat.fill(0);
+
+	std::for_each(res.begin(), res.end(), [=](std::vecotr< ct::Matf >& mat){
+		mat[0].fill(0);
+		mat[1].fill(0);
+		mat[2].fill(0);
+		//mat.fill(0);
 	});
 
-	lambdaBxs.resize(K * K);
+	lambdaBxs.resize(rows);
 	for(size_t i = 0; i < lambdaBxs.size(); ++i){
-		lambdaBxs[i].setSize(rows, 1);
+		lambdaBxs[i].setSize(K * K, 1);
 		lambdaBxs[i].fill(0.5);
 	}
 
 	if((int)images.size() != rows)
 		images.resize(rows);
-
-	lambdaBxs.resize(K * K);
 
 	m_index_im = 0;
 	for(size_t i = 0; i < indices.size(); ++i, ++m_index_im){

@@ -23,18 +23,22 @@ VocPredict::VocPredict()
 	m_reader = 0;
 
 	m_out_features = 0;
-	for(int i = 0; i < K * K; ++i){
+
+	using namespace meta;
+
+	{
 		m_cols.push_back(Classes);
 		m_out_features += Classes;
 	}
-	for(int i = 0; i < K * K; ++i){
-		m_cols.push_back(4 * Boxes);
-		m_out_features += (4 * Boxes);
+	{
+		m_cols.push_back(Rects);
+		m_out_features += (Rects);
 	}
-	for(int i = 0; i < K * K; ++i){
+	{
 		m_cols.push_back(Boxes);
 		m_out_features += Boxes;
 	}
+	printf("Output features: %d, Output matrices: %d\n", m_out_features, m_cols.size());
 }
 
 void VocPredict::setPasses(int val)
@@ -51,36 +55,35 @@ void VocPredict::setLr(float lr)
 {
 	m_lr = lr;
 
-	m_optim.setAlpha(lr);
+	m_optim_cnv.setAlpha(lr);
 }
 
 void VocPredict::init()
 {
-	m_conv.resize(cnv_size);
+	using namespace meta;
 
-	m_moment_optim.resize(cnv_size);
+	m_conv.resize(cnv_size2);
 
-	for(size_t i = 0; i < m_moment_optim.size(); ++i){
-		conv2::convnn2_mixed& cnv = m_conv[i];
-		cnv.setOptimizer(&m_moment_optim[i]);
-	}
+	m_conv[0].init(ct::Size(W, H), 3, 3, 64, ct::Size(5, 5), gpumat::LEAKYRELU, false, true, false);
+	m_conv[1].init(m_conv[0].szOut(), 64, 2, 64, ct::Size(5, 5), gpumat::LEAKYRELU, false, true, true);
+	m_conv[2].init(m_conv[1].szOut(), 64, 1, 128, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
+	m_conv[3].init(m_conv[2].szOut(), 128, 1, 256, ct::Size(3, 3), gpumat::LEAKYRELU, true, true, true);
+	m_conv[4].init(m_conv[3].szOut(), 256, 2, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
+	m_conv[5].init(m_conv[4].szOut(), 512, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
+	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true);
+	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
 
-	m_conv[0].init(ct::Size(W, W), 3, 4, 64, ct::Size(7, 7), true, false);
-	m_conv[1].init(m_conv[0].szOut(), 64, 1, 256, ct::Size(5, 5), true);
-	m_conv[2].init(m_conv[1].szOut(), 256, 1, 512, ct::Size(3, 3), true);
-	m_conv[3].init(m_conv[2].szOut(), 512, 1, 1024, ct::Size(3, 3), true);
-//	m_conv[4].init(m_conv[3].szOut(), 1024, 1, 512, ct::Size(3, 3), false);
+	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+	m_conv[11].init(m_conv[10].szOut(), 1024, 1, Classes + Boxes + 4 * Boxes, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
 
-	int outFeatures = m_conv.back().outputFeatures();
+	K = m_conv.back().szOut().width;
 
-	m_mlp.resize(mlp_size);
+	printf("K=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures());
 
-	m_mlp[0].init(outFeatures, 4096);
-//	m_mlp[1].init(2048, 2048);
-	m_mlp[1].init(4096, m_out_features);
-
-	m_optim.init(m_mlp);
-	m_optim.setAlpha(m_lr);
+	m_optim_cnv.init(m_conv);
+	m_optim_cnv.setAlpha(m_lr);
 }
 
 void VocPredict::setReader(AnnotationReader *reader)
@@ -88,7 +91,7 @@ void VocPredict::setReader(AnnotationReader *reader)
 	m_reader = reader;
 }
 
-void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<ct::Matf> *pY)
+void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<std::vector<ct::Matf> > *pY)
 {
 	if(X.empty() || m_conv.empty() || m_mlp.empty())
 		return;
@@ -99,51 +102,44 @@ void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<ct::Matf> *pY)
 
 	for(size_t i = 0; i < m_conv.size(); ++i){
 		conv2::convnn2_mixed& cnv = m_conv[i];
-		cnv.forward(pX, RELU);
+		cnv.forward(pX);
 		pX = &cnv.XOut();
 	}
 
-	conv2::vec2mat(m_conv.back().XOut(), m_vec2mat);
+	std::vector< Matf > &Y = m_conv.back().XOut();
 
-	Matf *pX2 = &m_vec2mat;
+	std::vector<int> cols;
+	cols.push_back(Classes);
+	cols.push_back(Rects);
+	cols.push_back(Boxes);
 
-	etypefunction func = LEAKYRELU;
-
-	for(size_t i = 0; i < m_mlp.size(); ++i){
-		if(i == m_mlp.size() - 1)
-			func = LINEAR;
-		mlp_mixed& _mlp = m_mlp[i];
-		_mlp.forward(pX2, func);
-		pX2 = &_mlp.Y();
+	pY->resize(Y.size());
+	int index = 0;
+	for(Matf &m: Y){
+		std::vector< Matf > &py = (*pY)[index++];
+		hsplit(m, cols, py);
 	}
 
-	hsplit(*pX2, m_cols, *pY);
+	for(std::vector< Matf > &py: *pY){
+		softmax(py[0], 1);
+		sigmoid(py[2]);
+	}
 
-	for(int i = first_classes; i < last_classes + 1; ++i){
-		(*pY)[i] = softmax((*pY)[i], 1);
-	}
-	for(int i = first_confidences; i < last_confidences + 1; ++i){
-		v_sigmoid((*pY)[i]);
-	}
 }
 
 void VocPredict::backward(std::vector<ct::Matf> &pY)
 {
-	ct::hconcat2(pY, m_D);
+	using namespace meta;
+	using namespace ct;
 
-	ct::Matf *pD = &m_D;
-	for(int i = m_mlp.size() - 1; i > -1; i--){
-		ct::mlp_mixed& mlp = m_mlp[i];
-		mlp.backward(*pD, i == 0 && cnv_do_back_layers == 0);
-		pD = &mlp.DltA0;
+	m_D.resize(pY.size());
+	int index = 0;
+	for(std::vector< Matf > &py: pY){
+		hconcat2(py, m_D[index++]);
 	}
-	m_optim.pass(m_mlp);
 
-	if(cnv_do_back_layers > 0){
-		ct::mlp_mixed& mlp0 = m_mlp.front();
-		conv2::convnn2_mixed& cnvl = m_conv.back();
-		conv2::mat2vec(mlp0.DltA0, cnvl.szK, m_delta_cnv);
-		std::vector< ct::Matf > *pCnv = &m_delta_cnv;
+	{
+		std::vector< ct::Matf > *pCnv = &m_D;
 		for(int i = m_conv.size() - 1; i > lrs; --i){
 			conv2::convnn2_mixed& cnvl = m_conv[i];
 			cnvl.backward(*pCnv, i == lrs);
@@ -152,11 +148,14 @@ void VocPredict::backward(std::vector<ct::Matf> &pY)
 	}
 }
 
-void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj> > &res)
+void VocPredict::predict(std::vector<std::vector< ct::Matf > > &pY, std::vector<std::vector<Obj> > &res)
 {
 	const int Crop = 5;
 
-	int rows = pY[0].rows;
+	using namespace meta;
+	using namespace ct;
+
+	int rows = pY.size();
 
 	struct IObj{
 		int cls;
@@ -169,70 +168,72 @@ void VocPredict::predict(std::vector<ct::Matf> &pY, std::vector<std::vector<Obj>
 
 	std::vector< ct::Matf > P;
 	//std::vector<  IObj > iobj;
-	P.resize(K * K * Boxes);
-	for(int i = 0; i < K * K; ++i){
+	P.resize(pY.size() * Boxes);
+	for(int i = 0; i < pY.size(); ++i){
 		for(int b = 0; b < Boxes; ++b){
-			ct::v_mulColumns(pY[first_classes + i], pY[first_confidences + i], P[i * Boxes + b], b);
+			ct::v_mulColumns(pY[i][0], pY[i][2], P[i * Boxes + b], b);
 			ct::v_cropValues<float>(P[i * Boxes + b], 0.1);
 		}
 	}
 	for(int row = 0; row < rows; ++row){
-		for(int c = 0; c < Classes; ++c){
-			std::vector< float > line;
-			for(int j = 0; j < (int)P.size(); ++j){
-				float *dP = P[j].ptr(row);
-				line.push_back(dP[c]);
-			}
-			crop_sort_classes<float>(line, Crop);
-			for(int j = 0; j < (int)P.size(); ++j){
-				float *dP = P[j].ptr(row);
-				dP[c] = line[j];
-			}
-		}
+		std::vector< ct::Matf > &py = pY[row];
 
-		for(int j = 0; j < (int)P.size(); ++j){
-			float *dP = P[j].ptr(row);
-			float p = dP[0]; int id = 0;
-			for(int c = 1; c < Classes; ++c){
-				if(p < dP[c]){
-					p = dP[c];
-					id = c;
+		for(int b = 0; b < Boxes; ++b){
+			Matf Pi = P[row * Boxes + b];
+			for(int c = 0; c < Classes; ++c){
+				std::vector< float > line;
+				for(int j = 0; j < Pi.rows; ++j){
+					float *dP = Pi.ptr(j);
+					line.push_back(dP[c]);
+				}
+				crop_sort_classes<float>(line, Crop);
+				for(int j = 0; j < Pi.rows; ++j){
+					float *dP = Pi.ptr(j);
+					dP[c] = line[j];
 				}
 			}
-			if(p > 0.1 && id > 0){
-				Obj ob;
-				ob.p = p;
-				ob.name = get_name(m_reader->classes, id);
 
-				int off2 = j % Boxes;
-				int off1 = (j - off2)/Boxes;
+			for(int j = 0; j < Pi.rows; ++j){
+				float *dP = Pi.ptr(j);
+				float p = dP[0]; int id = 0;
+				for(int c = 1; c < Classes; ++c){
+					if(p < dP[c]){
+						p = dP[c];
+						id = c;
+					}
+				}
+				if(p > 0.1 && id > 0){
+					Obj ob;
+					ob.p = p;
+					ob.name = get_name(m_reader->classes, id);
 
+					int off1 = j;
 
-				int y = off1 / K;
-				int x = off1 - y * K;
+					int y = off1 / K;
+					int x = off1 - y * K;
 
-				ct::Matf& B = pY[first_boxes + off1];
-				float *dB = B.ptr(row);
+					ct::Matf& B = py[1];//pY[first_boxes + off1];
+					float *dB = B.ptr(j);
 
-				float dx = dB[off2 * 4 + 0];
-				float dy = dB[off2 * 4 + 1];
-				float dw = dB[off2 * 4 + 2];
-				float dh = dB[off2 * 4 + 3];
+					float dx = dB[b * Rects + 0];
+					float dy = dB[b * Rects + 1];
+					float dw = dB[b * Rects + 2];
+					float dh = dB[b * Rects + 3];
 
-				float w = dw * dw * W;
-				float h = dh * dh * W;
+					float w = dw * dw * W;
+					float h = dh * dh * W;
 
-				if(!w || !h)
-					continue;
+					if(!w || !h)
+						continue;
 
-				ob.rectf = cv::Rect2f(dx, dy, dw, dh);
-				ob.rect = cv::Rect((float)x * D + dx * D - w/2,
-								   (float)y * D + dy * D - h/2,
-								   w, h);
-				res[row].push_back(ob);
+					ob.rectf = cv::Rect2f(dx, dy, dw, dh);
+					ob.rect = cv::Rect((float)x * D + dx * D - w/2,
+									   (float)y * D + dy * D - h/2,
+									   w, h);
+					res[row].push_back(ob);
+				}
 			}
 		}
-
 	}
 }
 

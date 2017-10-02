@@ -25,9 +25,9 @@ public:
 
 	void setReader(AnnotationReader* reader);
 
-	void forward(std::vector< ct::Matf >& X, std::vector< ct::Matf >* pY);
+	void forward(std::vector< ct::Matf >& X, std::vector< std::vector< ct::Matf> >* pY);
 	void backward(std::vector< ct::Matf >& pY);
-	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res);
+	void predict(std::vector<std::vector<ct::Matf> > &pY, std::vector<std::vector<Obj> > &res);
 	void predicts(std::vector< int > & list, bool show = false);
 	void predicts(std::string& sdir);
 
@@ -54,16 +54,13 @@ private:
 	QString m_modelSave;
 	bool m_internal_1;
 
-	ct::MlpOptimMixed m_optim;
-
 	std::vector< conv2::convnn2_mixed > m_conv;
-	std::vector< ct::mlp_mixed > m_mlp;
-	std::vector< conv2::MomentOptimizerMixed > m_moment_optim;
-	ct::Matf m_vec2mat;
-	ct::Matf m_D;
+	std::vector< ct::Matf> m_D;
 	std::vector< ct::Matf > m_delta_cnv;
 
 	AnnotationReader *m_reader;
+
+	conv2::CnvMomentumOptimizerMixed m_optim_cnv;
 
 	int m_out_features;
 	std::vector< int > m_cols;

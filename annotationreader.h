@@ -74,12 +74,15 @@ public:
 
 
 	Annotation &getGroundTruthMat(int index, int boxes, std::vector<ct::Matf> &images,
-						   std::vector< ct::Matf >& res, int row = 0, int rows = 1,
+								  std::vector<std::vector<ct::Matf> > &res, int row = 0, int rows = 1,
 								  bool flip = false, bool load_image = true, bool aug = false, bool init_input = true);
 	void getGroundTruthMat(std::vector<int> indices, int boxes,
-						   std::vector<ct::Matf> &images, std::vector< ct::Matf >& res, bool flip = false, bool aug = false);
+						   std::vector<ct::Matf> &images,
+						   std::vector<std::vector<ct::Matf> > &res,
+						   bool flip = false, bool aug = false);
 
-	void getImage(const std::string& filename, ct::Matf& res, bool flip = false, bool aug = false, const cv::Point& off = cv::Point());
+	void getImage(const std::string& filename, ct::Matf& res, bool flip = false,
+				  bool aug = false, const cv::Point& off = cv::Point());
 
 	void getMat(const ct::Matf& in, cv::Mat& out, const cv::Size sz);
 
@@ -101,11 +104,12 @@ private:
 	std::mt19937 m_gt;
 
 	bool load_annotation(const QString& fileName, Annotation& annotation);
-	void update_output(std::vector< ct::Matf >& res, Obj& ob, int off, int bxid, int row);
+	void update_output(std::vector<std::vector<ct::Matf> > &res, Obj& ob, int off, int bxid, int row);
 
 	// QXmlContentHandler interface
 public:
-	bool startElement(const QString &namespaceURI, const QString &localName, const QString &qName, const QXmlAttributes &atts);
+	bool startElement(const QString &namespaceURI, const QString &localName,
+					  const QString &qName, const QXmlAttributes &atts);
 	bool endElement(const QString &namespaceURI, const QString &localName, const QString &qName);
 	bool characters(const QString &ch);
 	QString errorString() const;

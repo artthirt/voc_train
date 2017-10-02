@@ -273,7 +273,8 @@ int main(int argc, char *argv[])
 			predictor.predicts(indices);
 		}
 	}else if(!train){
-		std::vector< ct::Matf > r, im;
+		std::vector< ct::Matf > im;
+		std::vector< std::vector< ct::Matf> > r;
 		Annotation an = reader.getGroundTruthMat(25, 2, im, r);
 
 		printf("<<<< filename %s >>>>\n", an.filename.c_str());

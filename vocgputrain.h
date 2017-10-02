@@ -26,11 +26,11 @@ public:
 
 	void init();
 
-	void forward(std::vector< gpumat::GpuMat >& X, std::vector< gpumat::GpuMat >* pY, bool dropout = false);
-	void backward(std::vector< gpumat::GpuMat >& pY);
+	void forward(std::vector< gpumat::GpuMat >& X, std::vector<std::vector<gpumat::GpuMat> > *pY, bool dropout = false);
+	void backward(std::vector<std::vector<gpumat::GpuMat> > &pY);
 
-	void predict(std::vector< gpumat::GpuMat >& pY, std::vector< std::vector<Obj> >& res);
-	void predict(std::vector< ct::Matf >& pY, std::vector<std::vector<Obj> > &res);
+	void predict(std::vector< std::vector< gpumat::GpuMat> >& pY, std::vector< std::vector<Obj> >& res);
+	void predict(std::vector<std::vector<ct::Matf> > &pY, std::vector<std::vector<Obj> > &res);
 	std::vector<std::vector<Obj> > predicts(std::vector< int > & list, bool show = false);
 	void predicts(std::string& sdir);
 
@@ -73,20 +73,22 @@ private:
 	bool m_show_test_image;
 
 	std::vector< gpumat::convnn_gpu > m_conv;
-	std::vector< gpumat::MomentumOptimizer > m_mnt_optim;
-	std::vector< gpumat::mlp > m_mlp;
 	gpumat::GpuMat m_vec2mat;
-	gpumat::GpuMat m_D;
-	gpumat::MlpOptim m_optim;
+//	gpumat::GpuMat m_D;
+	gpumat::GpuMat m_T;
+	gpumat::CnvMomentumOptimizer m_optim_cnv;
 	std::vector< int > m_cols;
 	int m_out_features;
 
+	std::vector< gpumat::GpuMat > m_D;
 	std::vector< gpumat::GpuMat > m_partZ;
 	std::vector< gpumat::GpuMat > m_delta_cnv;
 
 	//////////
 
-	void get_delta(std::vector< gpumat::GpuMat >& t, std::vector< gpumat::GpuMat >& y, bool test = false);
+	void split_conv(const std::vector< gpumat::GpuMat > &In, std::vector< gpumat::GpuMat > &Out);
+
+	void get_delta(std::vector<std::vector<gpumat::GpuMat> > &t, std::vector<std::vector<gpumat::GpuMat> > &y, bool test = false);
 };
 
 #endif // VOCGPUTRAIN_H
