@@ -66,7 +66,7 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 	m_passes = 100000;
 	m_batch = 5;
 	m_lr = 0.00001;
-	m_num_save_pass = 300;
+    m_num_save_pass = 200;
 
 	m_out_features = 0;
 
@@ -110,8 +110,8 @@ void VOCGpuTrain::init()
 	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true);
 	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
 
-    m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true);
-    m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true, true);
+    m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
+    m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
  //   m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true, true);
     m_conv[10].init(m_conv[9].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(3, 3), gpumat::LINEAR, false, false, true, true);
 
@@ -398,7 +398,8 @@ void VOCGpuTrain::setSeed(int seed)
 	ct::generator.seed(seed);
 }
 
-void VOCGpuTrain::get_delta(std::vector< std::vector< gpumat::GpuMat >  >& t, std::vector< std::vector< gpumat::GpuMat > >& y, bool test)
+void VOCGpuTrain::
+get_delta(std::vector< std::vector< gpumat::GpuMat >  >& t, std::vector< std::vector< gpumat::GpuMat > >& y, bool test)
 {
 	using namespace meta;
 
