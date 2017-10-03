@@ -434,26 +434,26 @@ float get_loss(std::vector< std::vector< gpumat::GpuMat > >& t)
 		{
 			gpumat::elemwiseSqr(t[b][0], t[b][0]);
 			gpumat::convert_to_mat(t[b][0], mat);
-			res1 = mat.sum() / mat.rows;
+			res1 += mat.sum() / mat.rows;
 		}
 		//res1 /= (last_classes - first_classes + 1);
 
 		{
 			gpumat::elemwiseSqr(t[b][1], t[b][1]);
 			gpumat::convert_to_mat(t[b][1], mat);
-			res2 = mat.sum() / mat.rows;
+			res2 += mat.sum() / mat.rows;
 		}
 		//res2 /= (last_boxes - first_boxes + 1);
 
 		{
 			gpumat::elemwiseSqr(t[b][2], t[b][2]);
 			gpumat::convert_to_mat(t[b][2], mat);
-			res3 = mat.sum() / mat.rows;
+			res3 += mat.sum() / mat.rows;
 		}
 	}
 	//res3 /= (last_confidences - first_confidences + 1);
 
-	return res1 + res2 + res3;
+	return (res1 + res2 + res3) / t.size();
 }
 
 void VOCGpuTrain::doPass()
