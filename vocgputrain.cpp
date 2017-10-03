@@ -57,7 +57,7 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 	}
 
 	m_internal_1 = false;
-	m_show_test_image = true;
+    m_show_test_image = false;
 
 	m_check_count = 500;
 
@@ -110,16 +110,18 @@ void VOCGpuTrain::init()
 	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true);
 	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
 
-    m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
-	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
-	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
-	m_conv[11].init(m_conv[10].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+    m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true);
+    m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true, true);
+ //   m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true, true);
+    m_conv[10].init(m_conv[9].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(3, 3), gpumat::LINEAR, false, false, true, true);
 
 //	K = m_conv.back().szOut().width;
 
 	printf("K=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures());
 
-	m_optim_cnv.init(m_conv);
+    m_optim_cnv.stop_layer = lrs;
+
+    m_optim_cnv.init(m_conv);
 	m_optim_cnv.setAlpha(m_lr);
 }
 

@@ -10,7 +10,7 @@ namespace meta{
     const int K = 11;
 
 	const int cnv_size = 8;
-	const int cnv_size2 = 12;
+    const int cnv_size2 = 11;
 	const int mlp_size = 2;
 
 	const int cnv_do_back_layers = 0;
