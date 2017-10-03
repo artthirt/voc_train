@@ -200,7 +200,7 @@ size_t AnnotationReader::size() const
 ///////////////////////////////
 ///////////////////////////////
 
-void fillP(cv::Mat& im, cv::Rect& rec, cv::Scalar col = cv::Scalar(0, 0, 200, 0))
+void fillP(cv::Mat& im, cv::Rect& rec, int id, cv::Scalar col = cv::Scalar(0, 0, 200, 0))
 {
 	using namespace meta;
 
@@ -219,6 +219,9 @@ void fillP(cv::Mat& im, cv::Rect& rec, cv::Scalar col = cv::Scalar(0, 0, 200, 0)
 	if(bxe == K)bxe = K - 1;
 	if(bye == K)bye = K - 1;
 
+	int xr = rec.x + rec.width;
+	int yr = rec.y + rec.height;
+
 	for(int y = bys; y <= bye; ++y){
 		for(int x = bxs; x <= bxe; ++x){
 
@@ -227,13 +230,10 @@ void fillP(cv::Mat& im, cv::Rect& rec, cv::Scalar col = cv::Scalar(0, 0, 200, 0)
 			int y1 = y * D;
 			int y2 = y1 + D;
 
-			int xr = rec.x + rec.width;
-			int yr = rec.y + rec.height;
-
-			if(rec.x > x1 && rec.x < x2)x1 = rec.x;
-			if(rec.y > y1 && rec.y < y2)y1 = rec.y;
-			if(xr > x1 && xr < x2)x2 = xr;
-			if(yr > y1 && yr < y2)y2 = yr;
+			if(rec.x >= x1 && rec.x < x2)x1 = rec.x;
+			if(rec.y >= y1 && rec.y < y2)y1 = rec.y;
+			if(xr >= x1 && xr < x2)x2 = xr;
+			if(yr >= y1 && yr < y2)y2 = yr;
 
 			cv::Rect rt = cv::Rect(x1, y1, x2 - x1, y2 - y1);
 
@@ -289,7 +289,7 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 		cv::flip(out, out, 1);
 	}
 
-	const int W = 448;
+//	const int W = 448;
 
 	cv::Mat out2;
 	cv::Size size(W, W);
@@ -299,7 +299,7 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 	}
 	cv::cvtColor(out2, out2, CV_RGB2RGBA);
 
-	int K = 7;
+//	int K = 7;
 
 	int D = W / K;
 
@@ -322,10 +322,10 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 
 		rec = cv::Rect((cx - dw/2) * W, (cy - dh/2) * W, dw * W, dh * W);
 
-		fillP(out2, rec, cv::Scalar(0, 200, 0));
+		fillP(out2, rec, id, cv::Scalar(0, 200, 0));
 
-		QString str = QString("(%1, %2), (%3, %4)").arg(cx).arg(cy).arg(dw).arg(dh);
-		cv::putText(out2, str.toStdString(), rec.tl(), 1, 1, cv::Scalar(0));
+		QString str = QString("%1").arg(id);
+		cv::putText(out2, str.toStdString(), rec.tl(), 1, 1, cv::Scalar(255, 255, 255));
 
 		id++;
 	}
@@ -564,7 +564,9 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 #if DEBUG_IMAGE
 	cv::Mat im;
-	getMat(images[row], im, cv::Size(W, W));
+	if(load_image && images.size() > row){
+		getMat(images[row], im, cv::Size(W, W));
+	}
 #endif
 
 	for(Obj obj: it.objs){
@@ -600,7 +602,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		lambdaBxs[row].ptr(off)[0] = 5.;
 
 #if DEBUG_IMAGE
-		{
+		if(!im.empty()){
 			rec.width = dw * W;
 			rec.height = dh * W;
 			rec.x = ccx * D + bx * D - rec.width/2;
@@ -612,7 +614,8 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 	}
 
 #if DEBUG_IMAGE
-	cv::imwrite("images/" + std::to_string(m_index_im) + ".jpg", im);
+	if(!im.empty())
+		cv::imwrite("images/" + std::to_string(m_index_im) + ".jpg", im);
 #endif
 
 //	for(int i = 0; i < K * K; ++i){

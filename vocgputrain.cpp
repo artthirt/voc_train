@@ -115,7 +115,7 @@ void VOCGpuTrain::init()
 	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
 	m_conv[11].init(m_conv[10].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
 
-	K = m_conv.back().szOut().width;
+//	K = m_conv.back().szOut().width;
 
 	printf("K=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures());
 
