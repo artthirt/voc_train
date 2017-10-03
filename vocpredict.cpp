@@ -38,7 +38,7 @@ VocPredict::VocPredict()
 		m_cols.push_back(Boxes);
 		m_out_features += Boxes;
 	}
-	printf("Output features: %d, Output matrices: %d\n", m_out_features, m_cols.size());
+//	printf("Output features: %d, Output matrices: %d\n", m_out_features, m_cols.size());
 }
 
 void VocPredict::setPasses(int val)
