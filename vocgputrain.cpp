@@ -57,7 +57,7 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 	}
 
 	m_internal_1 = false;
-    m_show_test_image = false;
+	m_show_test_image = true;
 
 	m_check_count = 500;
 
@@ -110,7 +110,7 @@ void VOCGpuTrain::init()
 	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true);
 	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
 
-    m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
+	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
     m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
  //   m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true, true);
     m_conv[10].init(m_conv[9].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(3, 3), gpumat::LINEAR, false, false, true, true);
@@ -182,6 +182,7 @@ void VOCGpuTrain::backward(std::vector< std::vector< gpumat::GpuMat > > &pY)
 			pCnv = &cnvl.Dlt;
 		}
 	}
+	m_optim_cnv.pass(m_conv);
 }
 
 void VOCGpuTrain::predict(std::vector<std::vector<gpumat::GpuMat> > &pY, std::vector<std::vector<Obj> > &res)
@@ -429,6 +430,8 @@ get_delta(std::vector< std::vector< gpumat::GpuMat >  >& t, std::vector< std::ve
 
 float get_loss(std::vector< std::vector< gpumat::GpuMat > >& t)
 {
+	using namespace meta;
+
 	ct::Matf mat;
 	float res1 = 0, res2 = 0, res3 = 0;
 	for(int b = 0; b < t.size(); ++b){
@@ -442,14 +445,14 @@ float get_loss(std::vector< std::vector< gpumat::GpuMat > >& t)
 		{
 			gpumat::elemwiseSqr(t[b][1], t[b][1]);
 			gpumat::convert_to_mat(t[b][1], mat);
-			res2 += mat.sum() / mat.rows;
+			res2 += mat.sum() / mat.rows / Rects;
 		}
 		//res2 /= (last_boxes - first_boxes + 1);
 
 		{
 			gpumat::elemwiseSqr(t[b][2], t[b][2]);
 			gpumat::convert_to_mat(t[b][2], mat);
-			res3 += mat.sum() / mat.rows;
+			res3 += mat.sum() / mat.rows / Boxes;
 		}
 	}
 	//res3 /= (last_confidences - first_confidences + 1);
@@ -484,7 +487,7 @@ void VOCGpuTrain::doPass()
 		printf("pass=%d    \r", pass);
 		std::cout << std::flush;
 
-		if((pass % m_num_save_pass) == 0 && pass > 0 || pass == 30){
+		if((pass % m_num_save_pass) == 0 || pass == 30){
 			int k = 0;
 			float loss = 0;
 			int cnt = 0;
