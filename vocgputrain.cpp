@@ -112,8 +112,8 @@ void VOCGpuTrain::init()
 
 	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
     m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
- //   m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true, true);
-    m_conv[10].init(m_conv[9].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(3, 3), gpumat::LINEAR, false, false, true, true);
+	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true, false);
+	m_conv[11].init(m_conv[10].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(1, 1), gpumat::LINEAR, false, false, true, false);
 
 //	K = m_conv.back().szOut().width;
 
@@ -445,14 +445,14 @@ float get_loss(std::vector< std::vector< gpumat::GpuMat > >& t)
 		{
 			gpumat::elemwiseSqr(t[b][1], t[b][1]);
 			gpumat::convert_to_mat(t[b][1], mat);
-			res2 += mat.sum() / mat.rows / Rects;
+			res2 += mat.sum() / mat.rows;
 		}
 		//res2 /= (last_boxes - first_boxes + 1);
 
 		{
 			gpumat::elemwiseSqr(t[b][2], t[b][2]);
 			gpumat::convert_to_mat(t[b][2], mat);
-			res3 += mat.sum() / mat.rows / Boxes;
+			res3 += mat.sum() / mat.rows;
 		}
 	}
 	//res3 /= (last_confidences - first_confidences + 1);

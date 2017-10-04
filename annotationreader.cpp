@@ -491,17 +491,17 @@ void AnnotationReader::update_output(std::vector< std::vector< ct::Matf > >& res
 	std::string name = ob.name;
 	int cls = classes[name];
 
-	float *dB = res[row][1].ptr(0);
-	dB[off * Rects + bxid * 4 + 0] = (float)ob.rectf.x;
-	dB[off * Rects + bxid * 4 + 1] = (float)ob.rectf.y;
-	dB[off * Rects + bxid * 4 + 2] = (float)ob.rectf.width;
-	dB[off * Rects + bxid * 4 + 3] = (float)ob.rectf.height;
+	float *dB = res[row][1].ptr(off);
+	dB[bxid * 4 + 0] = (float)ob.rectf.x;
+	dB[bxid * 4 + 1] = (float)ob.rectf.y;
+	dB[bxid * 4 + 2] = (float)ob.rectf.width;
+	dB[bxid * 4 + 3] = (float)ob.rectf.height;
 
-	float *dC = res[row][0].ptr(0);
-	dC[off * Classes + cls] = 1;
+	float *dC = res[row][0].ptr(off);
+	dC[cls] = 1;
 
-	float *dCf = res[row][2].ptr(0);
-	dCf[off * Boxes + bxid] = 1;
+	float *dCf = res[row][2].ptr(off);
+	dCf[bxid] = 1;
 }
 
 Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vector< ct::Matf >& images,
@@ -527,12 +527,13 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 			v[2].setSize(K * K, Boxes);
 		}
 
-		{
-			res[row][0].fill(0);
-			res[row][1].fill(0);
-			res[row][2].fill(0);
-		};
 	}
+
+	{
+		res[row][0].fill(0);
+		res[row][1].fill(0);
+		res[row][2].fill(0);
+	};
 
 	int xoff = 0, yoff = 0;
 
@@ -547,9 +548,8 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 	}
 	if(init_input){
 		lambdaBxs[row].setSize(K * K, 1);
-		lambdaBxs[row].fill(0.5);
 	}
-
+	lambdaBxs[row].fill(0.5);
 
 	if(load_image){
 		if((int)images.size() != rows){
