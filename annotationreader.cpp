@@ -503,7 +503,7 @@ void AnnotationReader::update_output(std::vector< std::vector< ct::Matf > >& res
 	float *dCf = res[row][2].ptr(off);
 	dCf[bxid] = 1;
 
-	std::cout << "bxid " << bxid << std::endl << std::flush;
+//	std::cout << "bxid " << bxid << std::endl << std::flush;
 }
 
 Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vector< ct::Matf >& images,
