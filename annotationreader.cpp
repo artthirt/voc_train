@@ -502,6 +502,8 @@ void AnnotationReader::update_output(std::vector< std::vector< ct::Matf > >& res
 
 	float *dCf = res[row][2].ptr(off);
 	dCf[bxid] = 1;
+
+	std::cout << "bxid " << bxid << std::endl << std::flush;
 }
 
 Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vector< ct::Matf >& images,
@@ -632,7 +634,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 			/// sort the found objects with ascend their area
 			std::sort(objs[i].begin(), objs[i].end(), [](const Obj& ob1, const Obj& ob2){
-				return ob1.rectf.width * ob1.rectf.height < ob2.rectf.width * ob2.rectf.height;
+				return ob1.rectf.width * ob1.rectf.height > ob2.rectf.width * ob2.rectf.height;
 			});
 
 			/// update matrices for the found objects
