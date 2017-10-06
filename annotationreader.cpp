@@ -758,6 +758,7 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 
 //	m.convertTo(m, CV_32F, 1./255., 0);
 //	cv::imwrite("ss.bmp", m);
+	float c1 = 1., c2 = 1., c3 = 1.;
 	if(!aug){
 		m.convertTo(m, CV_32F, 1./255., 0);
 	}else{
@@ -765,6 +766,9 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 		float br = nd(m_gt);
 		float cntr = nd(m_gt);
 		m.convertTo(m, CV_32F, (0.95 + br)/255., cntr);
+		c1 = 0.95 + nd(m_gt);
+		c2 = 0.95 + nd(m_gt);
+		c3 = 0.95 + nd(m_gt);
 	}
 
 	res.setSize(1, m.cols * m.rows * m.channels());
@@ -773,13 +777,14 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 	float* dX2 = res.ptr() + 1 * m.rows * m.cols;
 	float* dX3 = res.ptr() + 2 * m.rows * m.cols;
 
-	for(int y = 0, idx = 0; y < m.rows; ++y){
+#pragma omp parallel for
+	for(int y = 0; y < m.rows; ++y){
 		float *v = m.ptr<float>(y);
-		for(int x = 0; x < m.cols; ++x, ++idx){
-			//int off = y * m.cols + x;
-			dX1[idx] = v[x * m.channels() + 0];
-			dX2[idx] = v[x * m.channels() + 1];
-			dX3[idx] = v[x * m.channels() + 2];
+		for(int x = 0; x < m.cols; ++x){
+			int off = y * m.cols + x;
+			dX1[off] = c1 * v[x * m.channels() + 0];
+			dX2[off] = c2 * v[x * m.channels() + 1];
+			dX3[off] = c3 * v[x * m.channels() + 2];
 		}
 	}
 
