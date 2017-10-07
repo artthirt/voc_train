@@ -14,7 +14,7 @@ namespace meta{
 	const int mlp_size = 2;
 
 	const int cnv_do_back_layers = 0;
-	const int lrs = cnv_size;
+	const int lrs = cnv_size - 1;
 }
 
 #include <vector>

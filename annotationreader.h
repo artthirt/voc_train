@@ -69,6 +69,7 @@ public:
 	std::vector< Annotation > annotations;
 	QMap< std::string, int > classes;
 	std::vector< ct::Matf > lambdaBxs;
+	void set_seed(int seed);
 
 	size_t size() const;
 

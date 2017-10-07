@@ -110,9 +110,9 @@ void VOCGpuTrain::init()
 	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true);
 	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
 
-    m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true, true);
-    m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true, true);
-	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, false, true);
+	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true, true);
 	m_conv[11].init(m_conv[10].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(1, 1), gpumat::LINEAR, false, false, true);
 
 //	K = m_conv.back().szOut().width;
@@ -217,6 +217,7 @@ std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, 
 	m_reader->getGroundTruthMat(list, Boxes, mX, mY);
 	cnv2gpu(mX, X);
 	cnv2gpu(mY, y);
+//	cnv2gpu(m_reader->lambdaBxs, m_glambdaBxs);
 
 	forward(X, &t);
 
@@ -229,16 +230,16 @@ std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, 
 
 	for(int k = 0; k < t.size(); ++k){
 		{
-			gpumat::save_gmat(t[k][0], "test/cls" + std::to_string(k));
-			gpumat::save_gmat(y[k][0], "test/ycls" + std::to_string(k));
+			gpumat::save_gmat(t[k][0], "test/p_cls" + std::to_string(k));
+			gpumat::save_gmat(y[k][0], "test/p_ycls" + std::to_string(k));
 		}
 		{
-			gpumat::save_gmat(t[k][1], "test/boxes" + std::to_string(k));
-			gpumat::save_gmat(y[k][1], "test/ybxs" + std::to_string(k));
+			gpumat::save_gmat(t[k][1], "test/p_boxes" + std::to_string(k));
+			gpumat::save_gmat(y[k][1], "test/p_ybxs" + std::to_string(k));
 		}
 		{
-			gpumat::save_gmat(t[k][2], "test/cfd" + std::to_string(k));
-			gpumat::save_gmat(y[k][2], "test/ycfd" + std::to_string(k));
+			gpumat::save_gmat(t[k][2], "test/p_cfd" + std::to_string(k));
+			gpumat::save_gmat(y[k][2], "test/p_ycfd" + std::to_string(k));
 		}
 	}
 
@@ -341,8 +342,8 @@ void VOCGpuTrain::test_predict()
 	list.push_back(25);
 	list.push_back(26);
 	list.push_back(125);
-	list.push_back(101);
-	list.push_back(325);
+	list.push_back(108);
+	list.push_back(327);
 
 	predicts(list, true);
 }
@@ -399,8 +400,7 @@ void VOCGpuTrain::setSeed(int seed)
 	ct::generator.seed(seed);
 }
 
-void VOCGpuTrain::
-get_delta(std::vector< std::vector< gpumat::GpuMat >  >& t, std::vector< std::vector< gpumat::GpuMat > >& y, bool test)
+void VOCGpuTrain::get_delta(std::vector< std::vector< gpumat::GpuMat >  >& t, std::vector< std::vector< gpumat::GpuMat > >& y, bool test)
 {
 	using namespace meta;
 
@@ -408,22 +408,32 @@ get_delta(std::vector< std::vector< gpumat::GpuMat >  >& t, std::vector< std::ve
 		std::vector< gpumat::GpuMat >& ti = t[b];
 		std::vector< gpumat::GpuMat >& yi = y[b];
 		if(test){
+			gpumat::save_gmat(m_glambdaBxs[b], "test/lmbd" + std::to_string(b));
 			gpumat::save_gmat(ti[0], "test/cls" + std::to_string(b));
 			gpumat::save_gmat(yi[0], "test/ycls" + std::to_string(b));
 		}
 		gpumat::subWithColumn(ti[0], yi[0], m_glambdaBxs[b]);
+		if(test){
+			gpumat::save_gmat(ti[0], "test/cls_d_" + std::to_string(b));
+		}
 
 		if(test){
 			gpumat::save_gmat(ti[1], "test/boxes" + std::to_string(b));
 			gpumat::save_gmat(yi[1], "test/ybxs" + std::to_string(b));
 		}
 		gpumat::subWithColumn(ti[1], yi[1], m_glambdaBxs[b]);
+		if(test){
+			gpumat::save_gmat(ti[1], "test/boxes_d_" + std::to_string(b));
+		}
 
 		if(test){
 			gpumat::save_gmat(ti[2], "test/cfd" + std::to_string(b));
 			gpumat::save_gmat(yi[2], "test/ycfd" + std::to_string(b));
 		}
 		gpumat::back_delta_sigmoid(ti[2], yi[2], m_glambdaBxs[b]);
+		if(test){
+			gpumat::save_gmat(ti[2], "test/cfd_d_" + std::to_string(b));
+		}
 	//		gpumat::sub(t[i], y[i], t[i]);
 	}
 }
@@ -480,7 +490,7 @@ void VOCGpuTrain::doPass()
 
 		forward(X, &t);
 
-		get_delta(t, y, (pass % 100) == 0);
+		get_delta(t, y, (pass % 50) == 0);
 
 		backward(t);
 

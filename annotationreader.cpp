@@ -75,6 +75,11 @@ bool AnnotationReader::setVocFolder(const QString sdir)
 	return true;
 }
 
+void AnnotationReader::set_seed(int seed)
+{
+	m_gt.seed(seed);
+}
+
 bool AnnotationReader::load_annotation(const QString &fileName, Annotation& annotation)
 {
 	if(!QFile::exists(fileName))
@@ -601,8 +606,6 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 		objs[off].push_back(ob);
 
-		lambdaBxs[row].ptr(off)[0] = 5.;
-
 #if DEBUG_IMAGE
 		if(!im.empty()){
 			rec.width = dw * W;
@@ -634,7 +637,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 			/// sort the found objects with ascend their area
 			std::sort(objs[i].begin(), objs[i].end(), [](const Obj& ob1, const Obj& ob2){
-				return ob1.rectf.width * ob1.rectf.height > ob2.rectf.width * ob2.rectf.height;
+				return ob1.rectf.width * ob1.rectf.height < ob2.rectf.width * ob2.rectf.height;
 			});
 
 			/// update matrices for the found objects
@@ -663,11 +666,13 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 		for(int i = 0; i < K * K; ++i){
 			float* dC = m.ptr(i);
+			p = 0;
 			for(int j = 0; j < Classes; ++j){
 				p += dC[j];
 			}
 			if(p > 0.1){
 				for(int j = 0; j < Classes; ++j) dC[j] /= p;
+				lambdaBxs[row].ptr(i)[0] = 5.;
 			}else{
 				dC[0] = 1;
 			}

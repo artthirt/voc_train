@@ -217,6 +217,8 @@ int main(int argc, char *argv[])
 	int id = 25;
 	int cnt = 0;
 
+	reader.set_seed(seed);
+
 	if(predicts){
 		if(gpu){
 			bool model_voc_loaded = false;
