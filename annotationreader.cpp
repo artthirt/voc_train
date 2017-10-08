@@ -489,7 +489,7 @@ void getP(cv::Rect& rec, std::vector< ct::Matf > &classes, int cls, const cv::Re
 	}
 }
 
-void AnnotationReader::update_output(std::vector< std::vector< ct::Matf > >& res, Obj& ob, int off, int bxid, int row)
+void AnnotationReader::update_output(std::vector< std::vector< ct::Matf > >& res, const Obj& ob, int off, int bxid, int row)
 {
 	using namespace meta;
 
@@ -641,21 +641,20 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 			});
 
 			/// update matrices for the found objects
-			int bxid1 = -1, bxid2 = -1, id = 0;
+			int bxid1 = -1, bxid2 = -1;
 			std::for_each(objs[i].begin(), objs[i].end(), [&](const Obj& ob){
-				float ar = ob.rectf.width / ob.rectf.height;
-				if(ar >= 1.5){
+				float ar = ob.rectf.height / ob.rectf.width;
+				if(ar >= 2){
 					if(bxid1 < 0){
-						bxid1 = id;
-						update_output(res, objs[off][bxid1], off, 0, row);
+						bxid1 = 1;
+						update_output(res, ob, off, 0, row);
 					}
 				}else{
 					if(bxid2 < 0){
-						bxid2 = id;
-						update_output(res, objs[off][bxid2], off, 1, row);
+						bxid2 = 1;
+						update_output(res, ob, off, 1, row);
 					}
 				}
-				id++;
 			});
 		}
 	}

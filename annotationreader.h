@@ -105,7 +105,7 @@ private:
 	std::mt19937 m_gt;
 
 	bool load_annotation(const QString& fileName, Annotation& annotation);
-	void update_output(std::vector<std::vector<ct::Matf> > &res, Obj& ob, int off, int bxid, int row);
+	void update_output(std::vector<std::vector<ct::Matf> > &res, const Obj &ob, int off, int bxid, int row);
 
 	// QXmlContentHandler interface
 public:
