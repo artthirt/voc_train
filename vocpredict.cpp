@@ -216,10 +216,10 @@ void VocPredict::predict(std::vector<std::vector< ct::Matf > > &pY, std::vector<
 					ct::Matf& B = py[1];//pY[first_boxes + off1];
 					float *dB = B.ptr(j);
 
-					float dx = dB[b * Rects + 0];
-					float dy = dB[b * Rects + 1];
-					float dw = dB[b * Rects + 2];
-					float dh = dB[b * Rects + 3];
+					float dx = dB[b * Rect + 0];
+					float dy = dB[b * Rect + 1];
+					float dw = dB[b * Rect + 2];
+					float dh = dB[b * Rect + 3];
 
 					float w = dw * dw * W;
 					float h = dh * dh * W;

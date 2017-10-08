@@ -6,7 +6,8 @@ namespace meta{
 	const int H = W;
 	const int Classes = 25;
 	const int Boxes = 2;
-	const int Rects = 4 * Boxes;
+	const int Rect = 4;
+	const int Rects = Rect * Boxes;
 	const int K = 8;
 
 	const int cnv_size = 8;
