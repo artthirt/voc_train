@@ -644,7 +644,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 			int bxid1 = -1, bxid2 = -1;
 			std::for_each(objs[i].begin(), objs[i].end(), [&](const Obj& ob){
 				float ar = ob.rectf.height / ob.rectf.width;
-				if(ar >= 2){
+				if(ar >= 1.1){
 					if(bxid1 < 0){
 						bxid1 = 1;
 						update_output(res, ob, off, 0, row);
