@@ -2,7 +2,7 @@
 #define METACONFIG_H
 
 namespace meta{
-	const int W = 320;
+    const int W = 369;
 	const int H = W;
 	const int Classes = 25;
 	const int Boxes = 2;
@@ -11,11 +11,11 @@ namespace meta{
 	const int K = 8;
 
 	const int cnv_size = 8;
-	const int cnv_size2 = 11;
+    const int cnv_size2 = 14;
 	const int mlp_size = 2;
 
 	const int cnv_do_back_layers = 0;
-	const int lrs = cnv_size - 1;
+    const int lrs = cnv_size;
 }
 
 #include <vector>
