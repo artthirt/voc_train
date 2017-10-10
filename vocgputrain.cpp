@@ -110,9 +110,9 @@ void VOCGpuTrain::init()
 	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true);
 	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
 
-	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
-	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
-//	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true, true);
+	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true, true);
+	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, false, true, true);
+//	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, false, true, true);
 	m_conv[10].init(m_conv[9].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(1, 1), gpumat::LINEAR, false, false, true);
 
 //	K = m_conv.back().szOut().width;
