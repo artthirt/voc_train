@@ -2,13 +2,13 @@
 #define METACONFIG_H
 
 namespace meta{
-    const int W = 270;
+	const int W = 300;
 	const int H = W;
 	const int Classes = 25;
 	const int Boxes = 2;
 	const int Rect = 4;
 	const int Rects = Rect * Boxes;
-    const int K = 11;
+	const int K = 13;
 
 	const int cnv_size = 8;
     const int cnv_size2 = 11;
