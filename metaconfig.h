@@ -2,16 +2,16 @@
 #define METACONFIG_H
 
 namespace meta{
-    const int W = 369;
+    const int W = 270;
 	const int H = W;
 	const int Classes = 25;
 	const int Boxes = 2;
 	const int Rect = 4;
 	const int Rects = Rect * Boxes;
-	const int K = 8;
+    const int K = 11;
 
 	const int cnv_size = 8;
-    const int cnv_size2 = 14;
+    const int cnv_size2 = 11;
 	const int mlp_size = 2;
 
 	const int cnv_do_back_layers = 0;
