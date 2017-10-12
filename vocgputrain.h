@@ -73,10 +73,12 @@ private:
 	bool m_show_test_image;
 
 	std::vector< gpumat::convnn_gpu > m_conv;
+	std::vector< gpumat::mlp > m_mlp;
 	gpumat::GpuMat m_vec2mat;
 //	gpumat::GpuMat m_D;
 	gpumat::GpuMat m_T;
 	gpumat::CnvMomentumOptimizer m_optim_cnv;
+	gpumat::MlpOptimMoment m_optim_mlp;
 	std::vector< int > m_cols;
 	int m_out_features;
 
