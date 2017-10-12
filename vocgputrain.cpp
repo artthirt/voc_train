@@ -420,6 +420,7 @@ void VOCGpuTrain::setLerningRate(float lr)
 	m_lr = lr;
 
 	m_optim_cnv.setAlpha(lr);
+    m_optim_mlp.setAlpha(lr);
 }
 
 int VOCGpuTrain::numSavePass() const
