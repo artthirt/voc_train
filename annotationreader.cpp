@@ -770,9 +770,9 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 		float br = nd(m_gt);
 		float cntr = nd(m_gt);
 		m.convertTo(m, CV_32F, 1./255., cntr);
-		c1 = 0.98 + br;//0.95 + nd(m_gt);
-		c2 = 0.98 + br;//0.95 + nd(m_gt);
-		c3 = 0.98 + br;//0.95 + nd(m_gt);
+		c1 = 0.98 + nd(m_gt);
+		c2 = 0.98 + nd(m_gt);
+		c3 = 0.98 + nd(m_gt);
 	}
 
 	res.setSize(1, m.cols * m.rows * m.channels());
