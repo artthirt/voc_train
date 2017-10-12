@@ -111,13 +111,13 @@ void VOCGpuTrain::init()
 	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true);
 	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
 
-	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
-	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 64, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+    m_conv[8].init(m_conv[7].szOut(), 512, 1, 64, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+//	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 64, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
 //	m_conv[10].init(m_conv[9].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(1, 1), gpumat::LINEAR, false, false, true);
 
 	int outf = (Classes + Boxes + Rects) * (K * K);
 	m_mlp[0].init(m_conv.back().outputFeatures(), 4096, gpumat::GPU_FLOAT, gpumat::LEAKYRELU);
-	m_mlp[1].init(4096,  outf, gpumat::GPU_FLOAT, gpumat::LEAKYRELU);
+    m_mlp[1].init(4096,  outf, gpumat::GPU_FLOAT, gpumat::LINEAR);
 //	K = m_conv.back().szOut().width;
 
 	printf("K=%d, conv_out=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures(), outf);
@@ -148,19 +148,21 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
 		pX = &cnv.XOut();
 	}
 
-	std::vector< GpuMat > &Y = m_conv.back().XOut();
+    std::vector< GpuMat > *pYm = &m_conv.back().XOut();
 
-	for(size_t i = 0; i < Y.size(); ++i){
-		Y[i].reshape(1, m_conv.back().outputFeatures());
+    for(size_t i = 0; i < pYm->size(); ++i){
+        (*pYm)[i].reshape(1, m_conv.back().outputFeatures());
 	}
 
 	for(size_t i = 0; i < m_mlp.size(); ++i){
-		m_mlp[i].forward(&Y);
-		Y = m_mlp[i].vecA1;
+        m_mlp[i].forward(pYm);
+        pYm = &m_mlp[i].vecA1;
 	}
 
-	for(size_t i = 0; i < Y.size(); ++i){
-		Y[i].reshape(K * K, Classes + Rects + Boxes);
+    pYm = &m_mlp.back().vecA1;
+
+    for(size_t i = 0; i < pYm->size(); ++i){
+        (*pYm)[i].reshape(K * K, Classes + Rects + Boxes);
 	}
 
 	std::vector<int> cols;
@@ -168,9 +170,9 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
 	cols.push_back(Rects);
 	cols.push_back(Boxes);
 
-	pY->resize(Y.size());
+    pY->resize(m_mlp.back().vecA1.size());
 	int index = 0;
-	for(GpuMat &m: Y){
+    for(GpuMat &m: (*pYm)){
 		std::vector< GpuMat > &py = (*pY)[index++];
 		hsplit2(m, cols, py);
 	}
@@ -195,8 +197,11 @@ void VOCGpuTrain::backward(std::vector< std::vector< gpumat::GpuMat > > &pY)
 
 	{
 		for(size_t i = 0; i < m_D.size(); ++i){
-			m_D[i].reshape(1, (K * K) * (Classes + Rects + Boxes));
+            m_D[i].reshape(1, (K * K) * (Classes + Rects + Boxes));
 		}
+//        for(size_t i = 0; i < m_D.size(); ++i){
+//            (*(m_mlp.back().pVecA0))[i].reshape(1, (K * K) * (Classes + Rects + Boxes));
+//        }
 
 		std::vector< gpumat::GpuMat > *pMlp = &m_D;
 		for(int i = m_mlp.size() - 1; i >= 0; --i){
@@ -648,7 +653,8 @@ bool VOCGpuTrain::loadModel(const QString &model, bool load_mlp)
 	if(m_conv.size() < cnvs)
 		m_conv.resize(cnvs);
 #if USE_MLP
-	m_mlp.resize(mlps);
+    if(load_mlp)
+        m_mlp.resize(mlps);
 #endif
 	printf("conv\n");
 	for(size_t i = 0; i < cnvs; ++i){
@@ -660,9 +666,16 @@ bool VOCGpuTrain::loadModel(const QString &model, bool load_mlp)
 	printf("mlp\n");
 	for(size_t i = 0; i < mlps; ++i){
 #if USE_MLP
-		gpumat::mlp &mlp = m_mlp[i];
-		mlp.read2(fs);
-		printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+        if(load_mlp){
+            gpumat::mlp &mlp = m_mlp[i];
+            mlp.read2(fs);
+            printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+        }else{
+            gpumat::GpuMat W, B;
+            gpumat::read_fs2(fs, W);
+            gpumat::read_fs2(fs, B);
+            printf("layer %d: rows %d, cols %d\n", i, W.rows, W.cols);
+        }
 #else
 		gpumat::GpuMat W, B;
 		gpumat::read_fs2(fs, W);
