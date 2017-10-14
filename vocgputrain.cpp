@@ -316,8 +316,8 @@ void VOCGpuTrain::get_result(const std::vector< ct::Matf>& mX, const std::vector
 						  << val.rect.y << ", " << val.rect.width << ", " << val.rect.height << ")]\n";;
 			}
 
-			cv::putText(im, val.name + " p[" + std::to_string(val.p) + "]", val.rect.tl(), 1, 1, cv::Scalar(0, 255, 0), 2);
-			cv::rectangle(im, val.rect, cv::Scalar(0, 0, 255), 2);
+			cv::putText(im, val.name + " p[" + std::to_string(val.p) + "]", val.rect.tl(), 1, 1, cv::Scalar(0, 255, 0), 1);
+			cv::rectangle(im, val.rect, cv::Scalar(0, 0, 255), 1);
 		}
 
 		if(!show){
