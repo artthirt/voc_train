@@ -5,6 +5,8 @@
 
 #include "metaconfig.h"
 
+#include "helper_gpu.h"
+
 #ifndef _WIN32
 #include <unistd.h>
 #endif
@@ -63,6 +65,7 @@ void VocPredict::init()
 	using namespace meta;
 
 	m_conv.resize(cnv_size2);
+	m_mlp.resize(mlp_size);
 
 	m_conv[0].init(ct::Size(W, H), 3, 3, 64, ct::Size(5, 5), ct::LEAKYRELU, false, true, false);
 	m_conv[1].init(m_conv[0].szOut(), 64, 2, 64, ct::Size(5, 5), ct::LEAKYRELU, false, true, true);
@@ -73,17 +76,24 @@ void VocPredict::init()
 	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), ct::LEAKYRELU, false, true, true);
 	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), ct::LEAKYRELU, false, true, true);
 
-	m_conv[8].init(m_conv[7].szOut(), 512, 1, 1024, ct::Size(3, 3), ct::LEAKYRELU, false, true, true, true);
-	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 1024, ct::Size(3, 3), ct::LEAKYRELU, false, true, true, true);
-//	m_conv[10].init(m_conv[9].szOut(), 1024, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true, false);
-	m_conv[10].init(m_conv[9].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(1, 1), ct::LINEAR, false, false, true, false);
+	m_conv[8].init(m_conv[7].szOut(), 512, 1, 96, ct::Size(3, 3), ct::LEAKYRELU, false, true, true, true);
+//	m_conv[9].init(m_conv[8].szOut(), 1024, 1, 64, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+//	m_conv[10].init(m_conv[9].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(1, 1), gpumat::LINEAR, false, false, true);
 
+	int outf = (Classes + Boxes + Rects) * (K * K);
+	m_mlp[0].init(m_conv.back().outputFeatures(), 4096, ct::LEAKYRELU);
+	m_mlp[1].init(4096,  outf, ct::LINEAR);
 //	K = m_conv.back().szOut().width;
 
-	printf("K=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures());
+	printf("K=%d, conv_out=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures(), outf);
+
+	m_optim_cnv.stop_layer = lrs;
 
 	m_optim_cnv.init(m_conv);
 	m_optim_cnv.setAlpha(m_lr);
+
+	m_optim_mlp.init(m_mlp);
+	m_optim_mlp.setAlpha(m_lr);
 }
 
 void VocPredict::setReader(AnnotationReader *reader)
@@ -107,23 +117,50 @@ void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<std::vector<ct::M
 		pX = &cnv.XOut();
 	}
 
-	std::vector< Matf > &Y = m_conv.back().XOut();
+	std::vector< Matf > *pYm = &m_conv.back().XOut();
+
+	/// reshape cnv
+	for(Matf& xout: m_conv.back().XOut()){
+		xout.reshape(1, m_conv.back().outputFeatures());
+	}
+	for(size_t i = 0; i < m_mlp.size(); ++i){
+		m_mlp[i].forward(pYm);
+		pYm = &m_mlp[i].vecA1;
+	}
+
+	pYm = &m_mlp.back().vecA1;
+
+	for(size_t i = 0; i < pYm->size(); ++i){
+		(*pYm)[i].reshape(K * K, Classes + Rects + Boxes);
+	}
 
 	std::vector<int> cols;
 	cols.push_back(Classes);
 	cols.push_back(Rects);
 	cols.push_back(Boxes);
 
-	pY->resize(Y.size());
+	pY->resize(m_mlp.back().vecA1.size());
 	int index = 0;
-	for(Matf &m: Y){
+	for(Matf &m: (*pYm)){
 		std::vector< Matf > &py = (*pY)[index++];
 		hsplit(m, cols, py);
 	}
 
 	for(std::vector< Matf > &py: *pY){
-		softmax(py[0], 1);
-		sigmoid(py[2]);
+		{
+			gpumat::GpuMat g_py0, partZ;
+			gpumat::convert_to_gpu(py[0], g_py0);
+			gpumat::softmax(g_py0, 1, partZ);
+			gpumat::convert_to_mat(g_py0, py[0]);
+		}
+
+		{
+			gpumat::GpuMat g_py2;
+			gpumat::convert_to_gpu(py[2], g_py2);
+			gpumat::sigmoid(g_py2);
+
+			gpumat::convert_to_mat(g_py2, py[2]);
+		}
 	}
 
 }
@@ -140,13 +177,39 @@ void VocPredict::backward(std::vector<std::vector< ct::Matf> > &pY)
 	}
 
 	{
-		std::vector< ct::Matf > *pCnv = &m_D;
-		for(int i = m_conv.size() - 1; i > lrs; --i){
+		for(size_t i = 0; i < m_D.size(); ++i){
+			m_D[i].reshape(1, (K * K) * (Classes + Rects + Boxes));
+		}
+//        for(size_t i = 0; i < m_D.size(); ++i){
+//            (*(m_mlp.back().pVecA0))[i].reshape(1, (K * K) * (Classes + Rects + Boxes));
+//        }
+
+		std::vector< Matf > *pMlp = &m_D;
+		for(int i = m_mlp.size() - 1; i >= 0; --i){
+			m_mlp[i].backward(*pMlp);
+			pMlp = &m_mlp[i].vecDltA0;
+		}
+	}
+
+	std::vector< Matf > *pBack = &m_mlp[0].vecDltA0;
+
+	{
+		for(size_t i = 0; i < pBack->size(); ++i){
+			(*pBack)[i].reshape((K * K), m_conv.back().kernels);
+		}
+		/// reset shape cnv
+		for(Matf& xout: m_conv.back().XOut()){
+			xout.reshape((K * K), m_conv.back().kernels);
+		}
+		std::vector< Matf > *pCnv = pBack;
+		for(int i = m_conv.size() - 1; i >= lrs; --i){
 			conv2::convnn2_mixed& cnvl = m_conv[i];
 			cnvl.backward(*pCnv, i == lrs);
 			pCnv = &cnvl.Dlt;
 		}
 	}
+	m_optim_cnv.pass(m_conv);
+	m_optim_mlp.pass(m_mlp);
 }
 
 void VocPredict::predict(std::vector<std::vector< ct::Matf > > &pY, std::vector<std::vector<Obj> > &res)
@@ -410,12 +473,13 @@ bool VocPredict::loadModel(const QString &model, bool load_mlp)
 
 	printf("Load model: conv size %d, mlp size %d\n", cnvs, mlps);
 
-#define USE_MLP 0
+#define USE_MLP 1
 
 	if(m_conv.size() < cnvs)
 		m_conv.resize(cnvs);
 #if USE_MLP
-	m_mlp.resize(mlps);
+	if(load_mlp)
+		m_mlp.resize(mlps);
 #endif
 	printf("conv\n");
 	for(size_t i = 0; i < cnvs; ++i){
@@ -427,9 +491,16 @@ bool VocPredict::loadModel(const QString &model, bool load_mlp)
 	printf("mlp\n");
 	for(size_t i = 0; i < mlps; ++i){
 #if USE_MLP
-		gpumat::mlp &mlp = m_mlp[i];
-		mlp.read2(fs);
-		printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+		if(load_mlp){
+			ct::mlp_mixed &mlp = m_mlp[i];
+			mlp.read2(fs);
+			printf("layer %d: rows %d, cols %d\n", i, mlp.W.rows, mlp.W.cols);
+		}else{
+			ct::Matf W, B;
+			ct::read_fs2(fs, W);
+			ct::read_fs2(fs, B);
+			printf("layer %d: rows %d, cols %d\n", i, W.rows, W.cols);
+		}
 #else
 		ct::Matf W, B;
 		ct::read_fs2(fs, W);
@@ -473,7 +544,7 @@ void VocPredict::saveModel(const QString &name)
 
 //	fs.write((char*)&m_szA0, sizeof(m_szA0));
 
-	int cnvs = m_conv.size(), mlps = 0; //m_mlp.size();
+	int cnvs = m_conv.size(), mlps = m_mlp.size();
 
 	/// size of convolution array
 	fs.write((char*)&cnvs, sizeof(cnvs));
@@ -485,7 +556,7 @@ void VocPredict::saveModel(const QString &name)
 		cnv.write2(fs);
 	}
 
-#if 0
+#if 1
 	for(size_t i = 0; i < m_mlp.size(); ++i){
 		m_mlp[i].write2(fs);
 	}

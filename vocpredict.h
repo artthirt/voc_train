@@ -55,12 +55,14 @@ private:
 	bool m_internal_1;
 
 	std::vector< conv2::convnn2_mixed > m_conv;
+	std::vector< ct::mlp_mixed > m_mlp;
 	std::vector< ct::Matf> m_D;
 	std::vector< ct::Matf > m_delta_cnv;
 
 	AnnotationReader *m_reader;
 
 	conv2::CnvMomentumOptimizerMixed m_optim_cnv;
+	ct::MlpMomentumOptimizerMixed m_optim_mlp;
 
 	int m_out_features;
 	std::vector< int > m_cols;
