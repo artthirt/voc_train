@@ -120,6 +120,8 @@ void VOCGpuTrain::init()
     m_mlp[1].init(4096,  outf, gpumat::GPU_FLOAT, gpumat::LINEAR);
 //	K = m_conv.back().szOut().width;
 
+    m_mlp[0].setDropout(0.9);
+
 	printf("K=%d, conv_out=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures(), outf);
 
     m_optim_cnv.stop_layer = lrs;
@@ -153,6 +155,8 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
     for(size_t i = 0; i < pYm->size(); ++i){
         (*pYm)[i].reshape(1, m_conv.back().outputFeatures());
 	}
+
+    m_mlp[0].setDropout(dropout);
 
 	for(size_t i = 0; i < m_mlp.size(); ++i){
         m_mlp[i].forward(pYm);
@@ -531,7 +535,7 @@ void VOCGpuTrain::doPass()
 		cnv2gpu(mY, y);
 		cnv2gpu(m_reader->lambdaBxs, m_glambdaBxs);
 
-		forward(X, &t);
+        forward(X, &t, true);
 
 		get_delta(t, y, (pass % 50) == 0);
 
