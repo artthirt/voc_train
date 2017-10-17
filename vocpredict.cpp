@@ -85,6 +85,8 @@ void VocPredict::init()
 	m_mlp[1].init(4096,  outf, ct::LINEAR);
 //	K = m_conv.back().szOut().width;
 
+	m_mlp[0].setDropout(0.9f);
+
 	printf("K=%d, conv_out=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures(), outf);
 
 	m_optim_cnv.stop_layer = lrs;
@@ -101,13 +103,15 @@ void VocPredict::setReader(AnnotationReader *reader)
 	m_reader = reader;
 }
 
-void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<std::vector<ct::Matf> > *pY)
+void VocPredict::forward(std::vector<ct::Matf> &X, std::vector<std::vector<ct::Matf> > *pY, bool dropout)
 {
 	if(X.empty() || m_conv.empty())
 		return;
 
 	using namespace ct;
 	using namespace meta;
+
+	m_mlp[0].setDropout(dropout);
 
 	std::vector< Matf > *pX = &X;
 
@@ -422,6 +426,11 @@ void VocPredict::get_result(const std::vector<ct::Matf> &mX, const std::vector<s
 		}
 	}
 	if(show){
+		static bool init = false;
+		if(!init){
+			cv::namedWindow("win", cv::WINDOW_NORMAL | cv::WINDOW_FREERATIO);
+			init = true;
+		}
 		cv::imshow("win", tmp);
 	}
 }
@@ -696,7 +705,7 @@ void VocPredict::doPass()
 
 
 
-		forward(X, &t);
+		forward(X, &t, true);
 
 		get_delta(t, y, (pass % 100) == 0);
 

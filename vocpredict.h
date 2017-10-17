@@ -25,7 +25,7 @@ public:
 
 	void setReader(AnnotationReader* reader);
 
-	void forward(std::vector< ct::Matf >& X, std::vector< std::vector< ct::Matf> >* pY);
+	void forward(std::vector< ct::Matf >& X, std::vector< std::vector< ct::Matf> >* pY, bool dropout = false);
 	void backward(std::vector<std::vector<ct::Matf> > &pY);
 	void predict(std::vector<std::vector<ct::Matf> > &pY, std::vector<std::vector<Obj> > &res);
 	void predicts(std::vector< int > & list, bool show = false);
