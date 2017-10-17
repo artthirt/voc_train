@@ -150,8 +150,9 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
 
     std::vector< GpuMat > *pYm = &m_conv.back().XOut();
 
-    for(size_t i = 0; i < pYm->size(); ++i){
-        (*pYm)[i].reshape(1, m_conv.back().outputFeatures());
+	/// reshape cnv
+	for(GpuMat& xout: m_conv.back().XOut()){
+		xout.reshape(1, m_conv.back().outputFeatures());
 	}
 
 	for(size_t i = 0; i < m_mlp.size(); ++i){
@@ -159,7 +160,7 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
         pYm = &m_mlp[i].vecA1;
 	}
 
-    pYm = &m_mlp.back().vecA1;
+	pYm = &m_mlp.back().vecA1;
 
 	for(size_t i = 0; i < pYm->size(); ++i){
         (*pYm)[i].reshape(K * K, Classes + Rects + Boxes);
@@ -215,6 +216,10 @@ void VOCGpuTrain::backward(std::vector< std::vector< gpumat::GpuMat > > &pY)
 	{
 		for(size_t i = 0; i < pBack->size(); ++i){
 			(*pBack)[i].reshape((K * K), m_conv.back().kernels);
+		}
+		/// reset shape cnv
+		for(gpumat::GpuMat& xout: m_conv.back().XOut()){
+			xout.reshape((K * K), m_conv.back().kernels);
 		}
 		std::vector< gpumat::GpuMat > *pCnv = pBack;
 		for(int i = m_conv.size() - 1; i >= lrs; --i){
