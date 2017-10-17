@@ -161,7 +161,7 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
 
     pYm = &m_mlp.back().vecA1;
 
-    for(size_t i = 0; i < pYm->size(); ++i){
+	for(size_t i = 0; i < pYm->size(); ++i){
         (*pYm)[i].reshape(K * K, Classes + Rects + Boxes);
 	}
 
