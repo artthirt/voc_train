@@ -221,6 +221,8 @@ void fillP(cv::Mat& im, cv::Rect& rec, int id, cv::Scalar col = cv::Scalar(0, 0,
 
 	std::vector<float> P[K][K];
 
+	if(bxs < 0)bxs = 0;
+	if(bys < 0)bys = 0;
 	if(bxe >= K)bxe = K - 1;
 	if(bye >= K)bye = K - 1;
 
@@ -320,8 +322,8 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 	int id = 0;
 	for(Obj obj: it.objs){
 		cv::Rect rec = obj.rect;
-		rec.x += (aug.xoff * it.size.width) / W;
-		rec.y += (aug.yoff * it.size.height) / W;
+		rec.x += (float)(aug.xoff * it.size.width) / W;
+		rec.y += (float)(aug.yoff * it.size.height) / W;
 
 		if(aug.hflip){
 			rec.x = it.size.width - rec.x - rec.width;
@@ -334,6 +336,14 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 		float dh = (float)rec.height / it.size.height;
 		float cx = (float)rec.x / it.size.width + dw/2;
 		float cy = (float)rec.y / it.size.height + dh/2;
+
+		if(aug.zoom != 1.f){
+			cx = (cx - 0.5) * aug.zoom + 0.5;
+			cy = (cy - 0.5) * aug.zoom + 0.5;
+			dw *= aug.zoom;
+			dh *= aug.zoom;
+		}
+
 		if(cx >= 1 || cy >= 1 || cx < 0 ||cy < 0)
 			continue;
 
@@ -600,6 +610,14 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		float dh = (float)rec.height / it.size.height;
 		float cx = (float)rec.x / it.size.width + dw/2;
 		float cy = (float)rec.y / it.size.height + dh/2;
+
+		if(aug.zoom != 1.f){
+			cx = (cx - 0.5) * aug.zoom + 0.5;
+			cy = (cy - 0.5) * aug.zoom + 0.5;
+			dw *= aug.zoom;
+			dh *= aug.zoom;
+		}
+
 		if(cx >= 1 || cy >= 1 || cx < 0 ||cy < 0)
 			continue;
 
@@ -757,6 +775,18 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, cons
 	cv::resize(m, m, cv::Size(W, W));
 //	m = GetSquareImage(m, ImReader::IM_WIDTH);
 
+	if(aug.zoom != 1.f){
+		float _W = (float)W * aug.zoom;
+		cv::resize(m, m, cv::Size(_W, _W));
+		if(aug.zoom < 1){
+			cv::Mat r = cv::Mat::zeros(cv::Size(W, W), CV_8UC3);
+			m.copyTo(r(cv::Rect(W/2 - m.cols/2, W/2 - m.rows/2, m.cols, m.rows)));
+			r.copyTo(m);
+		}else{
+			m(cv::Rect(_W/2 - W/2, _W/2 - W/2, W, W)).copyTo(m);
+		}
+	}
+
 	if(aug.augmentation && (aug.xoff != 0 || aug.yoff != 0)){
 		offsetImage(m, cv::Scalar(0), aug.xoff, aug.yoff);
 	}
@@ -846,6 +876,7 @@ Aug::Aug()
 	vflip = hflip = false;
 	xoff = yoff = contrast = 0;
 	kr = kb = kg = 1.;
+	zoom = 1;
 }
 
 void Aug::gen(std::mt19937 &gn)
@@ -859,6 +890,7 @@ void Aug::gen(std::mt19937 &gn)
 	kr = 0.9 + nrgb(gn);
 	kg = 0.9 + nrgb(gn);
 	kb = 0.9 + nrgb(gn);
+	zoom = 1 + nrgb(gn);
 	std::binomial_distribution<int> bd(1, 0.5);
 	vflip = bd(gn);
 	hflip = bd(gn);
