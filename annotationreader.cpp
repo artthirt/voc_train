@@ -794,14 +794,14 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, cons
 	if(aug.vflip || aug.hflip){
 		if(aug.hflip && !aug.vflip){
 			cv::flip(m, m, 1);
-			std::cout << "1\n";
+            //std::cout << "1\n";
 		}else
 		if(aug.vflip && !aug.hflip){
 			cv::flip(m, m, 0);
-			std::cout << "2\n";
+            //std::cout << "2\n";
 		}else{
 			cv::flip(m, m, -1);
-			std::cout << "3\n";
+            //std::cout << "3\n";
 		}
 	}
 
