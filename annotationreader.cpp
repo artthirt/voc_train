@@ -332,6 +332,20 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 			rec.y = it.size.height - rec.y - rec.height;
 		}
 
+		if(rec.x < 0 || rec.x + rec.width >= it.size.width ||
+				rec.y < 0 || rec.y + rec.height >= it.size.height){
+			if(rec.x < 0)
+				rec.x = 0;
+			if(rec.y < 0)
+				rec.y = 0;
+			if(rec.x + rec.width >= it.size.width)
+				rec.width = it.size.width - rec.x - 1;
+			if(rec.y + rec.height >= it.size.height)
+				rec.height = it.size.height - rec.y - 1;
+			if(rec.width <= 0 || rec.height <= 0)
+				continue;
+		}
+
 		float dw = (float)rec.width / it.size.width;
 		float dh = (float)rec.height / it.size.height;
 		float cx = (float)rec.x / it.size.width + dw/2;
