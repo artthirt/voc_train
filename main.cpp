@@ -314,12 +314,10 @@ int main(int argc, char *argv[])
 			std::cout << r[i][2].print() << std::endl;
 		}
 
-		const int CNT = 500;
+		const int CNT = 5;
 
 		while(1){
-			if(!reader.show(id, false))
-				break;
-			if(!reader.show(id, true, "inv"))
+			if(!reader.show(id, true))
 				break;
 
 			if(cnt++ > CNT){
@@ -330,7 +328,7 @@ int main(int argc, char *argv[])
 				}
 			}
 
-			int ch = cv::waitKey(40);
+			int ch = cv::waitKey(5000);
 			if(ch == 13)
 				break;
 		}

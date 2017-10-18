@@ -221,8 +221,8 @@ void fillP(cv::Mat& im, cv::Rect& rec, int id, cv::Scalar col = cv::Scalar(0, 0,
 
 	std::vector<float> P[K][K];
 
-	if(bxe == K)bxe = K - 1;
-	if(bye == K)bye = K - 1;
+	if(bxe >= K)bxe = K - 1;
+	if(bye >= K)bye = K - 1;
 
 	int xr = rec.x + rec.width;
 	int yr = rec.y + rec.height;
@@ -281,52 +281,69 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 
 	}
 
+	Aug aug;
+	if(flip){
+		aug.gen(m_gt);
+	}
+
 	static std::vector< ct::Matf > ims;
 	std::vector< std::vector< ct::Matf > > res;
-	getGroundTruthMat(index, Boxes, ims, res, 0, 1, flip, false);
+	getGroundTruthMat(index, Boxes, ims, res, 0, 1, true, aug);
 
 	Annotation& it = annotations[index];
 
-	cv::Mat out;
-	m_sample.copyTo(out);
+//	cv::Mat out;
+//	m_sample.copyTo(out);
 
-	if(flip){
-		cv::flip(out, out, 1);
-	}
+//	if(flip){
+//		cv::flip(out, out, 1);
+//	}
 
-//	const int W = 448;
+////	const int W = 448;
 
-	cv::Mat out2;
-	cv::Size size(W, W);
-	cv::resize(m_sample, out2, size);
-	if(flip){
-		cv::flip(out2, out2, 1);
-	}
-	cv::cvtColor(out2, out2, CV_RGB2RGBA);
+//	cv::Mat out2;
+//	cv::Size size(W, W);
+//	cv::resize(m_sample, out2, size);
+//	if(flip){
+//		cv::flip(out2, out2, 1);
+//	}
+//	cv::cvtColor(out2, out2, CV_RGB2RGBA);
 
 //	int K = 7;
+
+	cv::Mat out, out2;
+	getMat(ims[0], out, cv::Size(W, W));
+	out.copyTo(out2);
 
 	int D = W / K;
 
 	int id = 0;
 	for(Obj obj: it.objs){
 		cv::Rect rec = obj.rect;
-		if(flip){
-			rec.x = out.cols - rec.x - rec.width;
-		}
-		cv::rectangle(out, rec, cv::Scalar(0, 0, 255), 1);
+		rec.x += (aug.xoff * it.size.width) / W;
+		rec.y += (aug.yoff * it.size.height) / W;
 
-		std::stringstream ss;
-		ss << id << " " << obj.name;
-		cv::putText(out, ss.str(), rec.tl(), 1, 1, cv::Scalar(0, 0, 255), 1);
+		if(aug.hflip){
+			rec.x = it.size.width - rec.x - rec.width;
+		}
+		if(aug.vflip){
+			rec.y = it.size.height - rec.y - rec.height;
+		}
 
 		float dw = (float)rec.width / it.size.width;
 		float dh = (float)rec.height / it.size.height;
 		float cx = (float)rec.x / it.size.width + dw/2;
 		float cy = (float)rec.y / it.size.height + dh/2;
+		if(cx >= 1 || cy >= 1 || cx < 0 ||cy < 0)
+			continue;
 
 		rec = cv::Rect((cx - dw/2) * W, (cy - dh/2) * W, dw * W, dh * W);
 
+		std::stringstream ss;
+		ss << id << " " << obj.name;
+		cv::putText(out, ss.str(), rec.tl(), 1, 1, cv::Scalar(0, 0, 255), 1);
+
+		cv::rectangle(out, rec, cv::Scalar(0, 0, 255), 1);
 		fillP(out2, rec, id, cv::Scalar(0, 200, 0));
 
 		QString str = QString("%1").arg(id);
@@ -512,8 +529,7 @@ void AnnotationReader::update_output(std::vector< std::vector< ct::Matf > >& res
 }
 
 Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vector< ct::Matf >& images,
-												std::vector< std::vector< ct::Matf > > &res, int row, int rows,
-												bool flip, bool load_image, bool aug, bool init_input)
+												std::vector< std::vector< ct::Matf > > &res, int row, int rows, bool load_image, const Aug aug, bool init_input)
 {
 	using namespace meta;
 
@@ -542,14 +558,6 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		res[row][2].fill(0);
 	};
 
-	int xoff = 0, yoff = 0;
-
-	if(aug){
-		std::normal_distribution<float> nd(0, W * 0.05);
-		xoff = nd(m_gt);
-		yoff = nd(m_gt);
-	}
-
 	if(lambdaBxs.empty()){
 		lambdaBxs.resize(rows);
 	}
@@ -564,7 +572,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		}
 		QString path_image = m_vocdir + "/";
 		path_image += path_images + "/" + it.filename.c_str();
-		getImage(path_image.toStdString(), images[row], flip, aug, cv::Point(xoff, yoff));
+		getImage(path_image.toStdString(), images[row], aug);
 	}
 
 	std::vector< Obj > objs[K * K];
@@ -578,12 +586,16 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 	for(Obj obj: it.objs){
 		cv::Rect rec = obj.rect;
-		rec.x += (xoff * it.size.width) / W;
-		rec.y += (yoff * it.size.height) / W;
+		rec.x += (aug.xoff * it.size.width) / W;
+		rec.y += (aug.yoff * it.size.height) / W;
 
-		if(flip){
+		if(aug.hflip){
 			rec.x = it.size.width - rec.x - rec.width;
 		}
+		if(aug.vflip){
+			rec.y = it.size.height - rec.y - rec.height;
+		}
+
 		float dw = (float)rec.width / it.size.width;
 		float dh = (float)rec.height / it.size.height;
 		float cx = (float)rec.x / it.size.width + dw/2;
@@ -682,23 +694,11 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 }
 
 void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
-										 std::vector<ct::Matf> &images, std::vector< std::vector< ct::Matf > > &res,
-										 bool flip, bool aug)
+										 std::vector<ct::Matf> &images, std::vector< std::vector< ct::Matf > > &res, bool aug)
 {
 	using namespace meta;
 
 	int rows = indices.size();
-
-	std::vector< int > flips;
-	if(flip){
-		std::binomial_distribution<int> bd(1, 0.5);
-		flips.resize(indices.size());
-		for(size_t i = 0; i < flips.size(); ++i){
-			flips[i] = bd(m_gt);
-		}
-	}else{
-		flips.resize(indices.size(), 0);
-	}
 
 	res.resize(rows);
 	for(std::vector< ct::Matf > &v : res){
@@ -726,7 +726,12 @@ void AnnotationReader::getGroundTruthMat(std::vector<int> indices, int boxes,
 
 	m_index_im = 0;
 	for(size_t i = 0; i < indices.size(); ++i, ++m_index_im){
-		getGroundTruthMat(indices[i], boxes, images, res, i, rows, flips[i], true, aug, false);
+		Aug _aug;
+		if(aug){
+			_aug.gen(m_gt);
+		}
+
+		getGroundTruthMat(indices[i], boxes, images, res, i, rows, true, _aug, false);
 	}
 }
 
@@ -742,7 +747,7 @@ void offsetImage(cv::Mat &image, cv::Scalar bordercolour, int xoffset, int yoffs
 	warpAffine(image, image, M, image.size());
 }
 
-void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool flip, bool aug, const cv::Point &off)
+void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, const Aug aug)
 {
 	using namespace meta;
 
@@ -752,27 +757,30 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 	cv::resize(m, m, cv::Size(W, W));
 //	m = GetSquareImage(m, ImReader::IM_WIDTH);
 
-	if(aug && (off.x != 0 || off.y != 0)){
-		offsetImage(m, cv::Scalar(0), off.x, off.y);
+	if(aug.augmentation && (aug.xoff != 0 || aug.yoff != 0)){
+		offsetImage(m, cv::Scalar(0), aug.xoff, aug.yoff);
 	}
 
-	if(flip){
-		cv::flip(m, m, 1);
+	if(aug.vflip || aug.hflip){
+		if(aug.hflip && !aug.vflip){
+			cv::flip(m, m, 1);
+			std::cout << "1\n";
+		}else
+		if(aug.vflip && !aug.hflip){
+			cv::flip(m, m, 0);
+			std::cout << "2\n";
+		}else{
+			cv::flip(m, m, -1);
+			std::cout << "3\n";
+		}
 	}
 
 //	m.convertTo(m, CV_32F, 1./255., 0);
 //	cv::imwrite("ss.bmp", m);
-	float c1 = 1., c2 = 1., c3 = 1.;
-	if(!aug){
+	if(!aug.augmentation){
 		m.convertTo(m, CV_32F, 1./255., 0);
 	}else{
-        std::normal_distribution<float> nd(0, 0.15);
-		float br = nd(m_gt);
-		float cntr = nd(m_gt);
-		m.convertTo(m, CV_32F, 1./255., cntr);
-        c1 = 0.9 + nd(m_gt);
-        c2 = 0.9 + nd(m_gt);
-        c3 = 0.9 + nd(m_gt);
+		m.convertTo(m, CV_32F, 1./255., aug.contrast);
 	}
 
 	res.setSize(1, m.cols * m.rows * m.channels());
@@ -786,9 +794,9 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, bool
 		float *v = m.ptr<float>(y);
 		for(int x = 0; x < m.cols; ++x){
 			int off = y * m.cols + x;
-			dX1[off] = c1 * v[x * m.channels() + 0];
-			dX2[off] = c2 * v[x * m.channels() + 1];
-			dX3[off] = c3 * v[x * m.channels() + 2];
+			dX1[off] = aug.kb * v[x * m.channels() + 0];
+			dX2[off] = aug.kg * v[x * m.channels() + 1];
+			dX3[off] = aug.kb * v[x * m.channels() + 2];
 		}
 	}
 
@@ -828,4 +836,30 @@ void AnnotationReader::getMat(const ct::Matf &in, cv::Mat &out, const cv::Size s
 		}
 	}
 	out.convertTo(out, CV_8UC3, 255.);
+}
+
+///////////////////////////
+
+Aug::Aug()
+{
+	augmentation = false;
+	vflip = hflip = false;
+	xoff = yoff = contrast = 0;
+	kr = kb = kg = 1.;
+}
+
+void Aug::gen(std::mt19937 &gn)
+{
+	augmentation = true;
+	std::normal_distribution<float> noff(0, meta::W * 0.05);
+	xoff = noff(gn);
+	yoff = noff(gn);
+	std::normal_distribution<float> nrgb(0, 0.15);
+	contrast = nrgb(gn);
+	kr = 0.9 + nrgb(gn);
+	kg = 0.9 + nrgb(gn);
+	kb = 0.9 + nrgb(gn);
+	std::binomial_distribution<int> bd(1, 0.5);
+	vflip = bd(gn);
+	hflip = bd(gn);
 }

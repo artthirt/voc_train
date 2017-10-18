@@ -700,7 +700,7 @@ void VocPredict::doPass()
 	list.resize(m_batch);
 	for(int pass = 0; pass < m_passes; ++pass){
 		cv::randu(list, 0, m_reader->annotations.size() - 1);
-		m_reader->getGroundTruthMat(list, Boxes, X, y, true, true);
+		m_reader->getGroundTruthMat(list, Boxes, X, y, true);
 
 
 

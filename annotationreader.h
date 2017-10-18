@@ -12,6 +12,25 @@
 
 #include <QMap>
 
+//////////////
+
+struct Aug{
+	Aug();
+	bool augmentation;
+	bool vflip;
+	bool hflip;
+	int xoff;
+	int yoff;
+	float kr;
+	float kg;
+	float kb;
+	float contrast;
+
+	void gen(std::mt19937& gn);
+};
+
+//////////////
+
 struct Obj{
 	Obj(){
 		p = 0;
@@ -76,14 +95,13 @@ public:
 
 	Annotation &getGroundTruthMat(int index, int boxes, std::vector<ct::Matf> &images,
 								  std::vector<std::vector<ct::Matf> > &res, int row = 0, int rows = 1,
-								  bool flip = false, bool load_image = true, bool aug = false, bool init_input = true);
+								  bool load_image = true, const Aug aug = Aug(), bool init_input = true);
 	void getGroundTruthMat(std::vector<int> indices, int boxes,
 						   std::vector<ct::Matf> &images,
 						   std::vector<std::vector<ct::Matf> > &res,
-						   bool flip = false, bool aug = false);
+						   bool aug = false);
 
-	void getImage(const std::string& filename, ct::Matf& res, bool flip = false,
-				  bool aug = false, const cv::Point& off = cv::Point());
+	void getImage(const std::string& filename, ct::Matf& res, const Aug aug = Aug());
 
 	void getMat(const ct::Matf& in, cv::Mat& out, const cv::Size sz);
 
