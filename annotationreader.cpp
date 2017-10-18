@@ -259,6 +259,28 @@ void fillP(cv::Mat& im, cv::Rect& rec, int id, cv::Scalar col = cv::Scalar(0, 0,
 	}
 }
 
+inline void clipRange(float* v, float _min, float _max)
+{
+	if(*v < _min)
+		*v = _min;
+	if(*v > _max)
+		*v = _max;
+}
+
+inline void clipRange(float* v1, float* v2, float _min, float _max)
+{
+	clipRange(v1, _min, _max);
+	clipRange(v2, _min, _max);
+}
+
+inline void clipRange(float* v1, float* v2, float* v3, float* v4, float _min, float _max)
+{
+	clipRange(v1, _min, _max);
+	clipRange(v2, _min, _max);
+	clipRange(v3, _min, _max);
+	clipRange(v4, _min, _max);
+}
+
 bool AnnotationReader::show(int index, bool flip, const std::string name)
 {
 	using namespace meta;
@@ -294,25 +316,6 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 
 	Annotation& it = annotations[index];
 
-//	cv::Mat out;
-//	m_sample.copyTo(out);
-
-//	if(flip){
-//		cv::flip(out, out, 1);
-//	}
-
-////	const int W = 448;
-
-//	cv::Mat out2;
-//	cv::Size size(W, W);
-//	cv::resize(m_sample, out2, size);
-//	if(flip){
-//		cv::flip(out2, out2, 1);
-//	}
-//	cv::cvtColor(out2, out2, CV_RGB2RGBA);
-
-//	int K = 7;
-
 	cv::Mat out, out2;
 	getMat(ims[0], out, cv::Size(W, W));
 	out.copyTo(out2);
@@ -322,43 +325,48 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 	int id = 0;
 	for(Obj obj: it.objs){
 		cv::Rect rec = obj.rect;
-		rec.x += (float)(aug.xoff * it.size.width) / W;
-		rec.y += (float)(aug.yoff * it.size.height) / W;
 
 		if(aug.hflip){
-			rec.x = it.size.width - rec.x - rec.width;
+			rec.x = it.size.width - rec.x - rec.width - 1;
 		}
 		if(aug.vflip){
-			rec.y = it.size.height - rec.y - rec.height;
+			rec.y = it.size.height - rec.y - rec.height - 1;
 		}
 
-		if(rec.x < 0 || rec.x + rec.width >= it.size.width ||
-				rec.y < 0 || rec.y + rec.height >= it.size.height){
-			if(rec.x < 0)
-				rec.x = 0;
-			if(rec.y < 0)
-				rec.y = 0;
-			if(rec.x + rec.width >= it.size.width)
-				rec.width = it.size.width - rec.x - 1;
-			if(rec.y + rec.height >= it.size.height)
-				rec.height = it.size.height - rec.y - 1;
-			if(rec.width <= 0 || rec.height <= 0)
-				continue;
-		}
+		float ddx = (float)aug.xoff / W;
+		float ddy = (float)aug.yoff / W;
 
-		float dw = (float)rec.width / it.size.width;
-		float dh = (float)rec.height / it.size.height;
-		float cx = (float)rec.x / it.size.width + dw/2;
-		float cy = (float)rec.y / it.size.height + dh/2;
+		float w = (float)rec.width / it.size.width;
+		float h = (float)rec.height / it.size.height;
+		float x1 = (float)rec.x / it.size.width;
+		float y1 = (float)rec.y / it.size.height;
+		float x2 = x1 + w;
+		float y2 = y1 + h;
 
-		if(aug.zoom != 1.f){
-			cx = (cx - 0.5) * aug.zoom + 0.5;
-			cy = (cy - 0.5) * aug.zoom + 0.5;
-			dw *= aug.zoom;
-			dh *= aug.zoom;
-		}
+		clipRange(&x1, &x2, &y1, &y2, 0, 1);
 
-		if(cx >= 1 || cy >= 1 || cx < 0 ||cy < 0)
+		x1 = (x1 - 0.5) * aug.zoom + 0.5;
+		y1 = (y1 - 0.5) * aug.zoom + 0.5;
+		x2 = (x2 - 0.5) * aug.zoom + 0.5;
+		y2 = (y2 - 0.5) * aug.zoom + 0.5;
+
+		clipRange(&x1, &x2, &y1, &y2, 0, 1);
+
+		x1 += ddx; x2 += ddx;
+		y1 += ddy; y2 += ddy;
+
+		if(x1 < 0 && x2 < 0 || y1 < 0 && y2 < 0
+				|| x1 > 1 || y1 > 1)
+			continue;
+
+		clipRange(&x1, &x2, &y1, &y2, 0, 1);
+
+		float dw = (x2 - x1);
+		float dh = (y2 - y1);
+		float cx = (x1 + x2)/2.;
+		float cy = (y1 + y2)/2.;
+
+		if(dw <= 0 || dh <= 0)
 			continue;
 
 		rec = cv::Rect((cx - dw/2) * W, (cy - dh/2) * W, dw * W, dh * W);
@@ -610,29 +618,48 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 	for(Obj obj: it.objs){
 		cv::Rect rec = obj.rect;
-		rec.x += (aug.xoff * it.size.width) / W;
-		rec.y += (aug.yoff * it.size.height) / W;
 
 		if(aug.hflip){
-			rec.x = it.size.width - rec.x - rec.width;
+			rec.x = it.size.width - rec.x - rec.width - 1;
 		}
 		if(aug.vflip){
-			rec.y = it.size.height - rec.y - rec.height;
+			rec.y = it.size.height - rec.y - rec.height - 1;
 		}
 
-		float dw = (float)rec.width / it.size.width;
-		float dh = (float)rec.height / it.size.height;
-		float cx = (float)rec.x / it.size.width + dw/2;
-		float cy = (float)rec.y / it.size.height + dh/2;
+		float ddx = (float)aug.xoff / W;
+		float ddy = (float)aug.yoff / W;
 
-		if(aug.zoom != 1.f){
-			cx = (cx - 0.5) * aug.zoom + 0.5;
-			cy = (cy - 0.5) * aug.zoom + 0.5;
-			dw *= aug.zoom;
-			dh *= aug.zoom;
-		}
+		float w = (float)rec.width / it.size.width;
+		float h = (float)rec.height / it.size.height;
+		float x1 = (float)rec.x / it.size.width;
+		float y1 = (float)rec.y / it.size.height;
+		float x2 = x1 + w;
+		float y2 = y1 + h;
 
-		if(cx >= 1 || cy >= 1 || cx < 0 ||cy < 0)
+		clipRange(&x1, &x2, &y1, &y2, 0, 1);
+
+		x1 = (x1 - 0.5) * aug.zoom + 0.5;
+		y1 = (y1 - 0.5) * aug.zoom + 0.5;
+		x2 = (x2 - 0.5) * aug.zoom + 0.5;
+		y2 = (y2 - 0.5) * aug.zoom + 0.5;
+
+		clipRange(&x1, &x2, &y1, &y2, 0, 1);
+
+		x1 += ddx; x2 += ddx;
+		y1 += ddy; y2 += ddy;
+
+		if(x1 < 0 && x2 < 0 || y1 < 0 && y2 < 0
+				|| x1 > 1 || y1 > 1)
+			continue;
+
+		clipRange(&x1, &x2, &y1, &y2, 0, 1);
+
+		float dw = (x2 - x1);
+		float dh = (y2 - y1);
+		float cx = (x1 + x2)/2.;
+		float cy = (y1 + y2)/2.;
+
+		if(dw <= 0 || dh <= 0)
 			continue;
 
 		int bx = cx * K;
@@ -801,25 +828,25 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, cons
 		}
 	}
 
+	if(aug.vflip || aug.hflip){
+		if(aug.hflip && !aug.vflip){
+			cv::flip(m, m, 1);
+//			std::cout << "1\n";
+		}else
+		if(aug.vflip && !aug.hflip){
+			cv::flip(m, m, 0);
+//			std::cout << "2\n";
+		}else{
+			cv::flip(m, m, -1);
+//			std::cout << "3\n";
+		}
+	}
+
 	if(aug.augmentation && (aug.xoff != 0 || aug.yoff != 0)){
 		offsetImage(m, cv::Scalar(0), aug.xoff, aug.yoff);
 	}
 
-	if(aug.vflip || aug.hflip){
-		if(aug.hflip && !aug.vflip){
-			cv::flip(m, m, 1);
-            //std::cout << "1\n";
-		}else
-		if(aug.vflip && !aug.hflip){
-			cv::flip(m, m, 0);
-            //std::cout << "2\n";
-		}else{
-			cv::flip(m, m, -1);
-            //std::cout << "3\n";
-		}
-	}
-
-//	m.convertTo(m, CV_32F, 1./255., 0);
+	//	m.convertTo(m, CV_32F, 1./255., 0);
 //	cv::imwrite("ss.bmp", m);
 	if(!aug.augmentation){
 		m.convertTo(m, CV_32F, 1./255., 0);
@@ -896,15 +923,15 @@ Aug::Aug()
 void Aug::gen(std::mt19937 &gn)
 {
 	augmentation = true;
-	std::normal_distribution<float> noff(0, meta::W * 0.05);
+	std::normal_distribution<float> noff(0, meta::W * 0.07);
 	xoff = noff(gn);
 	yoff = noff(gn);
-	std::normal_distribution<float> nrgb(0, 0.15);
+	std::normal_distribution<float> nrgb(0, 0.10);
 	contrast = nrgb(gn);
 	kr = 0.9 + nrgb(gn);
 	kg = 0.9 + nrgb(gn);
 	kb = 0.9 + nrgb(gn);
-	zoom = 1 + nrgb(gn);
+	zoom = 1.2;
 	std::binomial_distribution<int> bd(1, 0.5);
 	vflip = bd(gn);
 	hflip = bd(gn);

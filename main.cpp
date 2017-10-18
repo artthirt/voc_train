@@ -275,44 +275,44 @@ int main(int argc, char *argv[])
 			predictor.predicts(indices);
 		}
 	}else if(!train){
-		std::vector< ct::Matf > im;
-		std::vector< std::vector< ct::Matf> > r;
-		Annotation an = reader.getGroundTruthMat(25, 2, im, r);
+//		std::vector< ct::Matf > im;
+//		std::vector< std::vector< ct::Matf> > r;
+//		Annotation an = reader.getGroundTruthMat(25, 2, im, r);
 
-		printf("<<<< filename %s >>>>\n", an.filename.c_str());
-		for(Obj obj: an.objs){
-			printf("obj %s\t x=%d, y=%d, w=%d, h=%d\n", obj.name.c_str(), obj.rect.x, obj.rect.y,
-				   obj.rect.width, obj.rect.height);
-		}
-		for(size_t i = 0; i < r.size(); ++i){
-			std::cout << "-->" << i << std::endl;
-			std::cout << r[i][0].print() << std::endl;
-			std::cout << r[i][1].print() << std::endl;
-			std::cout << r[i][2].print() << std::endl;
-		}
-		printf("<<<<<< end >>>>>>>");
+//		printf("<<<< filename %s >>>>\n", an.filename.c_str());
+//		for(Obj obj: an.objs){
+//			printf("obj %s\t x=%d, y=%d, w=%d, h=%d\n", obj.name.c_str(), obj.rect.x, obj.rect.y,
+//				   obj.rect.width, obj.rect.height);
+//		}
+//		for(size_t i = 0; i < r.size(); ++i){
+//			std::cout << "-->" << i << std::endl;
+//			std::cout << r[i][0].print() << std::endl;
+//			std::cout << r[i][1].print() << std::endl;
+//			std::cout << r[i][2].print() << std::endl;
+//		}
+//		printf("<<<<<< end >>>>>>>");
 
-		r.resize(0);
-		std::vector< int > inds;
-		inds.push_back(3);
-		inds.push_back(25);
-		inds.push_back(21);
-		reader.getGroundTruthMat(inds, 2, im, r);
-		inds.clear();
-		inds.push_back(11);
-		inds.push_back(25);
-		inds.push_back(41);
-		reader.getGroundTruthMat(inds, 2, im, r);
-		std::cout << "Mat[0] size: " << r[0][0].rows << "," << r[0][0].cols << std::endl;
-		std::cout << "Mat[1] size: " << r[0][1].rows << "," << r[0][1].cols << std::endl;
-		std::cout << "Mat[2] size: " << r[0][2].rows << "," << r[0][2].cols << std::endl;
+//		r.resize(0);
+//		std::vector< int > inds;
+//		inds.push_back(3);
+//		inds.push_back(25);
+//		inds.push_back(21);
+//		reader.getGroundTruthMat(inds, 2, im, r);
+//		inds.clear();
+//		inds.push_back(11);
+//		inds.push_back(25);
+//		inds.push_back(41);
+//		reader.getGroundTruthMat(inds, 2, im, r);
+//		std::cout << "Mat[0] size: " << r[0][0].rows << "," << r[0][0].cols << std::endl;
+//		std::cout << "Mat[1] size: " << r[0][1].rows << "," << r[0][1].cols << std::endl;
+//		std::cout << "Mat[2] size: " << r[0][2].rows << "," << r[0][2].cols << std::endl;
 
-		for(size_t i = 0; i < r.size(); ++i){
-			std::cout << "-->" << i << std::endl;
-			std::cout << r[i][0].print() << std::endl;
-			std::cout << r[i][1].print() << std::endl;
-			std::cout << r[i][2].print() << std::endl;
-		}
+//		for(size_t i = 0; i < r.size(); ++i){
+//			std::cout << "-->" << i << std::endl;
+//			std::cout << r[i][0].print() << std::endl;
+//			std::cout << r[i][1].print() << std::endl;
+//			std::cout << r[i][2].print() << std::endl;
+//		}
 
 		const int CNT = 5;
 
