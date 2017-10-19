@@ -159,7 +159,7 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
 	}
 
     m_mlp[0].setDropout(dropout);
-    m_mlp[1].setDropout(dropout);
+///   m_mlp[1].setDropout(dropout);
 
     for(size_t i = 0; i < m_mlp.size(); ++i){
         m_mlp[i].forward(pYm);

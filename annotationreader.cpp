@@ -923,14 +923,14 @@ Aug::Aug()
 void Aug::gen(std::mt19937 &gn)
 {
 	augmentation = true;
-	std::normal_distribution<float> noff(0, meta::W * 0.07);
+	std::normal_distribution<float> noff(0, meta::W * 0.05);
 	xoff = noff(gn);
 	yoff = noff(gn);
-	std::normal_distribution<float> nrgb(0, 0.10);
-	contrast = nrgb(gn);
-	kr = 0.9 + nrgb(gn);
-	kg = 0.9 + nrgb(gn);
-	kb = 0.9 + nrgb(gn);
+	std::normal_distribution<float> nrgb(0, 0.1);
+	contrast = 0.5 * nrgb(gn);
+	kr = 0.95 + nrgb(gn);
+	kg = 0.95 + nrgb(gn);
+	kb = 0.95 + nrgb(gn);
 	zoom = 1. + nrgb(gn);
 	std::binomial_distribution<int> bd(1, 0.5);
 	vflip = bd(gn);

@@ -84,7 +84,6 @@ void test(bool save = false)
 	for(size_t i = 0; i < mt.size(); ++i){
 		ct::Matf* m = mt[i];
 
-		int id = 0;
 		float* dM = m->ptr();
 		for(int y = 0; y < m->rows; ++y){
 			for(int x = 0; x < m->cols; ++x){
