@@ -120,7 +120,7 @@ void VOCGpuTrain::init()
     m_mlp[1].init(4096,  outf, gpumat::GPU_FLOAT, gpumat::LINEAR);
 //	K = m_conv.back().szOut().width;
 
-    m_mlp[0].setDropout(0.8);
+    m_mlp[0].setDropout(0.9);
     m_mlp[1].setDropout(0.8);
 
 	printf("K=%d, conv_out=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures(), outf);
