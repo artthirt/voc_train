@@ -395,8 +395,8 @@ void VOCGpuTrain::test_predict()
 	list.push_back(25);
 	list.push_back(26);
 	list.push_back(125);
-	list.push_back(108);
-	list.push_back(327);
+	list.push_back(41);
+	list.push_back(137);
 
 	predicts(list, true);
 }

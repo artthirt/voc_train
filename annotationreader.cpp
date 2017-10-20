@@ -933,6 +933,6 @@ void Aug::gen(std::mt19937 &gn)
 	kb = 0.95 + nrgb(gn);
 	zoom = 1. + nrgb(gn);
 	std::binomial_distribution<int> bd(1, 0.5);
-	vflip = bd(gn);
+	vflip = false;//bd(gn);
 	hflip = bd(gn);
 }
