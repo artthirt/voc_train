@@ -50,6 +50,7 @@ void cnv2mat(std::vector< std::vector< gpumat::GpuMat > >& In, std::vector< std:
 
 VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 {
+	m_reader_test = 0;
 	m_reader = reader;
 	if(!m_reader){
 		std::cout << "!!!! Annotation Reader not Set. Fail !!!!" << std::endl;
@@ -120,8 +121,8 @@ void VOCGpuTrain::init()
     m_mlp[1].init(4096,  outf, gpumat::GPU_FLOAT, gpumat::LINEAR);
 //	K = m_conv.back().szOut().width;
 
-    m_mlp[0].setDropout(0.9);
-    m_mlp[1].setDropout(0.8);
+	m_mlp[0].setDropout(0.92);
+	m_mlp[1].setDropout(0.92);
 
 	printf("K=%d, conv_out=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures(), outf);
 
@@ -159,7 +160,7 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
 	}
 
     m_mlp[0].setDropout(dropout);
-///   m_mlp[1].setDropout(dropout);
+	m_mlp[1].setDropout(dropout);
 
     for(size_t i = 0; i < m_mlp.size(); ++i){
         m_mlp[i].forward(pYm);
@@ -249,7 +250,9 @@ void VOCGpuTrain::predict(std::vector<std::vector< ct::Matf >> &pY, std::vector<
 {
 	VocPredict predictor;
 
-	predictor.setReader(m_reader);
+	AnnotationReader *rd = m_reader_test? m_reader_test : m_reader;
+
+	predictor.setReader(rd);
 	predictor.predict(pY, res);
 }
 
@@ -267,7 +270,9 @@ std::vector< std::vector< Obj > > VOCGpuTrain::predicts(std::vector<int> &list, 
 	std::vector< gpumat::GpuMat > X;
 	std::vector< std::vector< gpumat::GpuMat> > y, t;
 
-	m_reader->getGroundTruthMat(list, Boxes, mX, mY);
+	AnnotationReader *rd = m_reader_test? m_reader_test : m_reader;
+
+	rd->getGroundTruthMat(list, Boxes, mX, mY);
 	cnv2gpu(mX, X);
 	cnv2gpu(mY, y);
 //	cnv2gpu(m_reader->lambdaBxs, m_glambdaBxs);
@@ -307,6 +312,8 @@ void VOCGpuTrain::get_result(const std::vector< ct::Matf>& mX, const std::vector
 {
 	using namespace meta;
 
+	AnnotationReader* rd = m_reader_test? m_reader_test : m_reader;
+
 	cv::Mat tmp;
 	if(show){
 		if(!m_internal_1){
@@ -318,7 +325,7 @@ void VOCGpuTrain::get_result(const std::vector< ct::Matf>& mX, const std::vector
 	for(size_t i = 0; i < res.size(); ++i){
 		const ct::Matf &Xi = mX[i];
 		cv::Mat im;
-		m_reader->getMat(Xi, im, cv::Size(W, W));
+		rd->getMat(Xi, im, cv::Size(W, W));
 
 		for(size_t j = 0; j < res[i].size(); ++j){
 			const Obj& val = res[i][j];
@@ -555,12 +562,15 @@ void VOCGpuTrain::doPass()
 			int k = 0;
 			float loss = 0;
 			int cnt = 0;
+
+			AnnotationReader *rd = m_reader_test? m_reader_test : m_reader;
+
 			while( k < m_check_count){
-				cv::randu(list, 0, m_reader->annotations.size() - 1);
-				m_reader->getGroundTruthMat(list, Boxes, mX, mY);
+				cv::randu(list, 0, rd->annotations.size() - 1);
+				rd->getGroundTruthMat(list, Boxes, mX, mY);
 				cnv2gpu(mX, X);
 				cnv2gpu(mY, y);
-				cnv2gpu(m_reader->lambdaBxs, m_glambdaBxs);
+				cnv2gpu(rd->lambdaBxs, m_glambdaBxs);
 
 				forward(X, &t);
 
@@ -776,4 +786,9 @@ void VOCGpuTrain::saveModel(const QString &name)
 void VOCGpuTrain::setModelSaveName(const QString &name)
 {
 	m_modelSave = name;
+}
+
+void VOCGpuTrain::setTestReader(AnnotationReader *reader)
+{
+	m_reader_test = reader;
 }

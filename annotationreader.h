@@ -25,7 +25,8 @@ struct Aug{
 	float kg;
 	float kb;
 	float contrast;
-	float zoom;
+	float zoomx;
+	float zoomy;
 
 	void gen(std::mt19937& gn);
 };

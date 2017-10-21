@@ -345,10 +345,10 @@ bool AnnotationReader::show(int index, bool flip, const std::string name)
 
 		clipRange(&x1, &x2, &y1, &y2, 0, 1);
 
-		x1 = (x1 - 0.5) * aug.zoom + 0.5;
-		y1 = (y1 - 0.5) * aug.zoom + 0.5;
-		x2 = (x2 - 0.5) * aug.zoom + 0.5;
-		y2 = (y2 - 0.5) * aug.zoom + 0.5;
+		x1 = (x1 - 0.5) * aug.zoomx + 0.5;
+		y1 = (y1 - 0.5) * aug.zoomy + 0.5;
+		x2 = (x2 - 0.5) * aug.zoomx + 0.5;
+		y2 = (y2 - 0.5) * aug.zoomy + 0.5;
 
 		clipRange(&x1, &x2, &y1, &y2, 0, 1);
 
@@ -638,10 +638,10 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 
 		clipRange(&x1, &x2, &y1, &y2, 0, 1);
 
-		x1 = (x1 - 0.5) * aug.zoom + 0.5;
-		y1 = (y1 - 0.5) * aug.zoom + 0.5;
-		x2 = (x2 - 0.5) * aug.zoom + 0.5;
-		y2 = (y2 - 0.5) * aug.zoom + 0.5;
+		x1 = (x1 - 0.5) * aug.zoomx + 0.5;
+		y1 = (y1 - 0.5) * aug.zoomy + 0.5;
+		x2 = (x2 - 0.5) * aug.zoomx + 0.5;
+		y2 = (y2 - 0.5) * aug.zoomy + 0.5;
 
 		clipRange(&x1, &x2, &y1, &y2, 0, 1);
 
@@ -816,15 +816,26 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, cons
 	cv::resize(m, m, cv::Size(W, W));
 //	m = GetSquareImage(m, ImReader::IM_WIDTH);
 
-	if(aug.zoom != 1.f){
-		float _W = (float)W * aug.zoom;
-		cv::resize(m, m, cv::Size(_W, _W));
-		if(aug.zoom < 1){
+	if(aug.zoomx != 1.f || aug.zoomy != 1.f){
+		int _Wx = (float)W * aug.zoomx;
+		int _Wy = (float)W * aug.zoomy;
+		cv::resize(m, m, cv::Size(_Wx, _Wy));
+		if(aug.zoomx < 1 && aug.zoomy < 1){
 			cv::Mat r = cv::Mat::zeros(cv::Size(W, W), CV_8UC3);
 			m.copyTo(r(cv::Rect(W/2 - m.cols/2, W/2 - m.rows/2, m.cols, m.rows)));
 			r.copyTo(m);
+		}else if(aug.zoomx < 1 && aug.zoomy > 1){
+			cv::Mat r = cv::Mat::zeros(cv::Size(W, W), CV_8UC3);
+			m(cv::Rect(0, _Wy/2 - W/2, _Wx, W )).copyTo(m);
+			m.copyTo(r(cv::Rect(W/2 - m.cols/2, W/2 - m.rows/2, m.cols, m.rows)));
+			r.copyTo(m);
+		}else if(aug.zoomx > 1 && aug.zoomy < 1){
+			cv::Mat r = cv::Mat::zeros(cv::Size(W, W), CV_8UC3);
+			m(cv::Rect(_Wx/2 - W/2, 0 , W, _Wy)).copyTo(m);
+			m.copyTo(r(cv::Rect(m.cols/2 - W/2, W/2 - m.rows/2, W, m.rows)));
+			r.copyTo(m);
 		}else{
-			m(cv::Rect(_W/2 - W/2, _W/2 - W/2, W, W)).copyTo(m);
+			m(cv::Rect(_Wx/2 - W/2, _Wy/2 - W/2, W, W)).copyTo(m);
 		}
 	}
 
@@ -917,21 +928,23 @@ Aug::Aug()
 	vflip = hflip = false;
 	xoff = yoff = contrast = 0;
 	kr = kb = kg = 1.;
-	zoom = 1;
+	zoomx = 1;
+	zoomy = 1;
 }
 
 void Aug::gen(std::mt19937 &gn)
 {
 	augmentation = true;
-	std::normal_distribution<float> noff(0, meta::W * 0.05);
+	std::normal_distribution<float> noff(0, meta::W * 0.03);
 	xoff = noff(gn);
 	yoff = noff(gn);
 	std::normal_distribution<float> nrgb(0, 0.1);
 	contrast = 0.5 * nrgb(gn);
-	kr = 0.95 + nrgb(gn);
-	kg = 0.95 + nrgb(gn);
-	kb = 0.95 + nrgb(gn);
-	zoom = 1. + nrgb(gn);
+	kr = 1. + nrgb(gn);
+	kg = 1. + nrgb(gn);
+	kb = 1. + nrgb(gn);
+	zoomx = 0.9 + 2. * nrgb(gn);
+	zoomy = 0.9 + 2. * nrgb(gn);
 	std::binomial_distribution<int> bd(1, 0.5);
 	vflip = false;//bd(gn);
 	hflip = bd(gn);

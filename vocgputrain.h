@@ -24,6 +24,8 @@ public:
 	void saveModel(const QString& name);
 	void setModelSaveName(const QString& name);
 
+	void setTestReader(AnnotationReader* reader);
+
 	void init();
 
 	void forward(std::vector< gpumat::GpuMat >& X, std::vector<std::vector<gpumat::GpuMat> > *pY, bool dropout = false);
@@ -54,6 +56,7 @@ public:
 
 private:
 	AnnotationReader* m_reader;
+	AnnotationReader* m_reader_test;
 
 	QString m_model;
 

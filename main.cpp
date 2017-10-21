@@ -23,6 +23,9 @@ std::map<std::string, std::string> parseArgs(int argc, char *argv[])
 		if(str == "-voc" && i < argc){
 			res["voc"] = argv[i + 1];
 		}
+		if(str == "-test" && i < argc){
+			res["test"] = argv[i + 1];
+		}
 		if(str == "-load_voc" && i < argc){
 			res["load_voc"] = argv[i + 1];
 		}
@@ -160,10 +163,11 @@ int main(int argc, char *argv[])
 	std::map<std::string, std::string> res = parseArgs(argc, argv);
 
 	AnnotationReader reader;
+	AnnotationReader reader_test;
 
 	VOCGpuTrain voc(&reader);
 
-	QString voc_dir;
+	QString voc_dir, test_dir;
 
 	int passes = 100000, batch = 10;
 	float lr = 0.0001;
@@ -177,6 +181,9 @@ int main(int argc, char *argv[])
 	if(contain(res, "voc")){
 		voc_dir = QString::fromStdString(res["voc"]);
 	}	
+	if(contain(res, "test")){
+		test_dir = QString::fromStdString(res["test"]);
+	}
 	if(contain(res, "pass")){
 		passes = std::stoi(res["pass"]);
 	}
@@ -204,6 +211,11 @@ int main(int argc, char *argv[])
 	}
 	if(!reader.setVocFolder(voc_dir)){
 		return 1;
+	}
+
+	if(reader_test.setVocFolder(test_dir)){
+		voc.setTestReader(&reader_test);
+		std::cout << "<<---test data set--->\n";
 	}
 
 	bool predicts = false;
@@ -327,7 +339,7 @@ int main(int argc, char *argv[])
 				}
 			}
 
-			int ch = cv::waitKey(5000);
+			int ch = cv::waitKey(1000);
 			if(ch == 13)
 				break;
 		}
