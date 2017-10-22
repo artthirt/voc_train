@@ -935,17 +935,17 @@ Aug::Aug()
 void Aug::gen(std::mt19937 &gn)
 {
 	augmentation = true;
-	std::uniform_real_distribution<float> noff(-meta::W * 0.03, meta::W * 0.03);
+	std::uniform_real_distribution<float> noff(-meta::W * 0.1, meta::W * 0.1);
 	xoff = noff(gn);
 	yoff = noff(gn);
 	std::uniform_real_distribution<float> nrgb(-0.1, 0.1);
-	contrast = 0.5 * nrgb(gn);
+	contrast = nrgb(gn);
 	kr = 1. + nrgb(gn);
 	kg = 1. + nrgb(gn);
 	kb = 1. + nrgb(gn);
 	zoomx = 0.9 + 2. * nrgb(gn);
 	zoomy = 0.9 + 2. * nrgb(gn);
 	std::binomial_distribution<int> bd(1, 0.5);
-	vflip = false;//bd(gn);
+	//vflip = bd(gn);
 	hflip = bd(gn);
 }
