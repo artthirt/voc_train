@@ -935,10 +935,10 @@ Aug::Aug()
 void Aug::gen(std::mt19937 &gn)
 {
 	augmentation = true;
-	std::uniform_real_distribution<float> noff(-meta::W * 0.1, meta::W * 0.1);
+	std::uniform_real_distribution<float> noff(-meta::W * 0.03, meta::W * 0.03);
 	xoff = noff(gn);
 	yoff = noff(gn);
-	std::uniform_real_distribution<float> nrgb(-0.1, 0.1);
+	std::uniform_real_distribution<float> nrgb(-0.15, 0.15);
 	contrast = nrgb(gn);
 	kr = 1. + nrgb(gn);
 	kg = 1. + nrgb(gn);

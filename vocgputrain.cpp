@@ -112,8 +112,8 @@ void VOCGpuTrain::init()
 	m_conv[6].init(m_conv[5].szOut(), 512, 1, 1024, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true);
 	m_conv[7].init(m_conv[6].szOut(), 1024, 1, 512, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true);
 
-	m_conv[8].init(m_conv[7].szOut(), 512, 1, 256, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
-	m_conv[9].init(m_conv[8].szOut(), 256, 1, 96, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
+	m_conv[8].init(m_conv[7].szOut(), 512, 1, 64, ct::Size(1, 1), gpumat::LEAKYRELU, false, true, true);
+//	m_conv[9].init(m_conv[8].szOut(), 256, 1, 96, ct::Size(3, 3), gpumat::LEAKYRELU, false, true, true, true);
 //	m_conv[10].init(m_conv[9].szOut(), 1024, 1, Classes + Boxes + Rects, ct::Size(1, 1), gpumat::LINEAR, false, false, true);
 
 	int outf = (Classes + Boxes + Rects) * (K * K);
@@ -121,8 +121,8 @@ void VOCGpuTrain::init()
     m_mlp[1].init(4096,  outf, gpumat::GPU_FLOAT, gpumat::LINEAR);
 //	K = m_conv.back().szOut().width;
 
-	m_conv[8].setDropout(0.8);
-	m_conv[9].setDropout(0.8);
+//	m_conv[8].setDropout(0.6);
+//	m_conv[9].setDropout(0.6);
 	m_mlp[0].setDropout(0.8);
 	m_mlp[1].setDropout(0.8);
 
@@ -145,10 +145,10 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
 	using namespace gpumat;
 	using namespace meta;
 
-	m_conv[8].setDropout(dropout);
-	m_conv[9].setDropout(dropout);
+//	m_conv[8].setDropout(dropout);
+//	m_conv[9].setDropout(dropout);
 	m_mlp[0].setDropout(dropout);
-	m_mlp[1].setDropout(dropout);
+//	m_mlp[1].setDropout(dropout);
 
 	std::vector< GpuMat > *pX = &X;
 
