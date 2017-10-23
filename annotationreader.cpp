@@ -857,7 +857,16 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, cons
 		offsetImage(m, cv::Scalar(0), aug.xoff, aug.yoff);
 	}
 
-	//	m.convertTo(m, CV_32F, 1./255., 0);
+	if(aug.inv){
+		cv::bitwise_not(m, m);
+	}else{
+		if(aug.gray){
+			cv::cvtColor(m, m, CV_RGB2GRAY);
+			cv::cvtColor(m, m, CV_GRAY2RGB);
+		}
+	}
+
+//	m.convertTo(m, CV_32F, 1./255., 0);
 //	cv::imwrite("ss.bmp", m);
 	if(!aug.augmentation){
 		m.convertTo(m, CV_32F, 1./255., 0);
@@ -930,6 +939,8 @@ Aug::Aug()
 	kr = kb = kg = 1.;
 	zoomx = 1;
 	zoomy = 1;
+	inv = false;
+	gray = false;
 }
 
 void Aug::gen(std::mt19937 &gn)
@@ -948,4 +959,6 @@ void Aug::gen(std::mt19937 &gn)
 	std::binomial_distribution<int> bd(1, 0.5);
 	//vflip = bd(gn);
 	hflip = bd(gn);
+	inv = bd(gn);
+	gray = bd(gn);
 }
