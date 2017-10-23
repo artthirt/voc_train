@@ -872,15 +872,15 @@ void AnnotationReader::getImage(const std::string &filename, ct::Matf &res, cons
 	float* dX3 = res.ptr() + 2 * m.rows * m.cols;
 
 #pragma omp parallel for
-	for(int y = 0; y < m.rows; ++y){
-		float *v = m.ptr<float>(y);
-		for(int x = 0; x < m.cols; ++x){
-			int off = y * m.cols + x;
-			dX1[off] = aug.kb * v[x * m.channels() + 0];
-			dX2[off] = aug.kg * v[x * m.channels() + 1];
-			dX3[off] = aug.kb * v[x * m.channels() + 2];
-		}
-	}
+    for(int y = 0; y < m.rows; ++y){
+        float *v = m.ptr<float>(y);
+        for(int x = 0; x < m.cols; ++x){
+            int off = y * m.cols + x;
+            dX1[off] = aug.kb * v[x * m.channels() + 0];
+            dX2[off] = aug.kg * v[x * m.channels() + 1];
+            dX3[off] = aug.kb * v[x * m.channels() + 2];
+        }
+    }
 
 	res.clipRange(0, 1);
 
@@ -943,8 +943,8 @@ void Aug::gen(std::mt19937 &gn)
 	kr = 1. + nrgb(gn);
 	kg = 1. + nrgb(gn);
 	kb = 1. + nrgb(gn);
-	zoomx = 0.9 + 2. * nrgb(gn);
-	zoomy = 0.9 + 2. * nrgb(gn);
+    zoomx = 1 + 1. * nrgb(gn);
+    zoomy = 1 + 1. * nrgb(gn);
 	std::binomial_distribution<int> bd(1, 0.5);
 	//vflip = bd(gn);
 	hflip = bd(gn);

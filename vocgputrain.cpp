@@ -123,8 +123,8 @@ void VOCGpuTrain::init()
 
 //	m_conv[8].setDropout(0.6);
 //	m_conv[9].setDropout(0.6);
-	m_mlp[0].setDropout(0.8);
-	m_mlp[1].setDropout(0.8);
+    m_mlp[0].setDropout(0.91);
+    m_mlp[1].setDropout(0.91);
 
 	printf("K=%d, conv_out=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures(), outf);
 
@@ -148,7 +148,7 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
 //	m_conv[8].setDropout(dropout);
 //	m_conv[9].setDropout(dropout);
 	m_mlp[0].setDropout(dropout);
-//	m_mlp[1].setDropout(dropout);
+    m_mlp[1].setDropout(dropout);
 
 	std::vector< GpuMat > *pX = &X;
 
