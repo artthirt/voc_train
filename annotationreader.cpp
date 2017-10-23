@@ -659,7 +659,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 		float cx = (x1 + x2)/2.;
 		float cy = (y1 + y2)/2.;
 
-		if(dw <= 0 || dh <= 0)
+		if(dw <= 0 || dh <= 0 || dw * W < 5. || dh * W < 5.)
 			continue;
 
 		int bx = cx * K;
