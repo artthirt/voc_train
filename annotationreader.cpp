@@ -715,7 +715,7 @@ Annotation& AnnotationReader::getGroundTruthMat(int index, int boxes, std::vecto
 			int bxid1 = -1, bxid2 = -1;
 			std::for_each(objs[i].begin(), objs[i].end(), [&](const Obj& ob){
 				float ar = ob.rectf.height / ob.rectf.width;
-				if(ar >= 1.1){
+				if(ar >= 1.5){
 					if(bxid1 < 0){
 						bxid1 = 1;
 						update_output(res, ob, off, 0, row);
@@ -949,11 +949,11 @@ void Aug::gen(std::mt19937 &gn)
 	std::uniform_real_distribution<float> noff(-meta::W * 0.03, meta::W * 0.03);
 	xoff = noff(gn);
 	yoff = noff(gn);
-	std::uniform_real_distribution<float> nrgb(-0.15, 0.15);
+	std::uniform_real_distribution<float> nrgb(-0.1, 0.1);
 	contrast = nrgb(gn);
-	kr = 1. + nrgb(gn);
-	kg = 1. + nrgb(gn);
-	kb = 1. + nrgb(gn);
+	kr = 0.95 + nrgb(gn);
+	kg = 0.95 + nrgb(gn);
+	kb = 0.95 + nrgb(gn);
     zoomx = 1 + 1. * nrgb(gn);
     zoomy = 1 + 1. * nrgb(gn);
 	std::binomial_distribution<int> bd(1, 0.5);

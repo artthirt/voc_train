@@ -60,7 +60,7 @@ VOCGpuTrain::VOCGpuTrain(AnnotationReader *reader)
 	m_internal_1 = false;
 	m_show_test_image = true;
 
-	m_check_count = 500;
+	m_check_count = 400;
 
 	m_modelSave = "model_voc.bin";
 
@@ -123,7 +123,7 @@ void VOCGpuTrain::init()
 
 //	m_conv[8].setDropout(0.6);
 //	m_conv[9].setDropout(0.6);
-    m_mlp[0].setDropout(0.91);
+	m_mlp[0].setDropout(0.9);
     m_mlp[1].setDropout(0.91);
 
 	printf("K=%d, conv_out=%d, All_output_features=%d\n", K, m_conv.back().outputFeatures(), outf);
@@ -148,7 +148,7 @@ void VOCGpuTrain::forward(std::vector<gpumat::GpuMat> &X, std::vector< std::vect
 //	m_conv[8].setDropout(dropout);
 //	m_conv[9].setDropout(dropout);
 	m_mlp[0].setDropout(dropout);
-    m_mlp[1].setDropout(dropout);
+//    m_mlp[1].setDropout(dropout);
 
 	std::vector< GpuMat > *pX = &X;
 
@@ -563,33 +563,41 @@ void VOCGpuTrain::doPass()
 		std::cout << std::flush;
 
 		if((pass % m_num_save_pass) == 0 || pass == 30){
-			int k = 0;
-			float loss = 0;
-			int cnt = 0;
+			//AnnotationReader *rd = m_reader_test? m_reader_test : m_reader;
 
-			AnnotationReader *rd = m_reader_test? m_reader_test : m_reader;
+			auto func = [&](AnnotationReader *rd, std::string str){
 
-			while( k < m_check_count){
-				cv::randu(list, 0, rd->annotations.size() - 1);
-				rd->getGroundTruthMat(list, Boxes, mX, mY);
-				cnv2gpu(mX, X);
-				cnv2gpu(mY, y);
-				cnv2gpu(rd->lambdaBxs, m_glambdaBxs);
+				int k = 0;
+				float loss = 0;
+				int cnt = 0;
 
-				forward(X, &t);
+				while( k < m_check_count){
+					cv::randu(list, 0, rd->annotations.size() - 1);
+					rd->getGroundTruthMat(list, Boxes, mX, mY);
+					cnv2gpu(mX, X);
+					cnv2gpu(mY, y);
+					cnv2gpu(rd->lambdaBxs, m_glambdaBxs);
 
-				get_delta(t, y);
+					forward(X, &t);
 
-				loss += get_loss(t);
+					get_delta(t, y);
 
-				k += m_batch;
-				cnt++;
+					loss += get_loss(t);
 
-				printf("test: cur %d, all %d    \r", k, m_check_count);
-				std::cout << std::flush;
-			}
-			loss /= cnt;
-			printf("pass=%d, loss=%f    \n", pass, loss);
+					k += m_batch;
+					cnt++;
+
+					printf("test: cur %d, all %d    \r", k, m_check_count);
+					std::cout << std::flush;
+				}
+				loss /= cnt;
+				printf("%s: pass=%d, loss=%f    \n", str.c_str(), pass, loss);
+			};
+
+			func(m_reader, std::string("Train"));
+			if(m_reader_test)
+				func(m_reader_test, std::string("Test"));
+
 			saveModel(m_modelSave);
 		}
         if((pass % 10) == 0 && m_show_test_image){
